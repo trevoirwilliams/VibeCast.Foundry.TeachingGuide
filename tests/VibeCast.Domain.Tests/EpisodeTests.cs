@@ -1,3 +1,4 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using VibeCast.Domain.Episodes;
 
 namespace VibeCast.Domain.Tests;

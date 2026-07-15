@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace VibeCast.IntegrationTests;
 

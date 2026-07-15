@@ -1,3 +1,4 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using VibeCast.Application.Episodes;
 using VibeCast.Application.Media;
 
