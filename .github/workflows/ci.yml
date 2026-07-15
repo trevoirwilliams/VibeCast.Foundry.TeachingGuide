@@ -6,44 +6,28 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
       - name: Restore
         run: dotnet restore VibeCast.sln --verbosity minimal
-      - name: Generate authoritative EF Core migration
+      - name: Build
+        run: dotnet build VibeCast.sln --configuration Release --no-restore
+      - name: Verify EF Core model and migrations
         shell: bash
         run: |
           dotnet tool install --global dotnet-ef --version 10.0.10
-          rm -f src/VibeCast.Infrastructure/Data/Migrations/*.cs
-          dotnet ef migrations add InitialCreate \
+          dotnet ef migrations has-pending-model-changes \
             --project src/VibeCast.Infrastructure/VibeCast.Infrastructure.csproj \
             --startup-project src/VibeCast.Web/VibeCast.Web.csproj \
-            --output-dir Data/Migrations
-      - name: Build
-        run: dotnet build VibeCast.sln --configuration Release --no-restore
+            --configuration Release \
+            --no-build
       - name: Test
         run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
-      - name: Commit generated migration files
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if git diff --quiet -- src/VibeCast.Infrastructure/Data/Migrations; then
-            echo "Migration files are already current."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A src/VibeCast.Infrastructure/Data/Migrations
-          git commit -m "Replace migration with generated EF Core artifacts [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
