@@ -18,21 +18,21 @@ jobs:
           dotnet-version: 10.0.x
       - name: Restore
         run: dotnet restore VibeCast.sln --verbosity minimal
+      - name: Generate authoritative EF Core migration
+        shell: bash
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.10
+          rm -f src/VibeCast.Infrastructure/Data/Migrations/*.cs
+          dotnet ef migrations add InitialCreate \
+            --project src/VibeCast.Infrastructure/VibeCast.Infrastructure.csproj \
+            --startup-project src/VibeCast.Web/VibeCast.Web.csproj \
+            --output-dir Data/Migrations
+      - name: Upload generated migrations
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-migrations
+          path: src/VibeCast.Infrastructure/Data/Migrations
       - name: Build
         run: dotnet build VibeCast.sln --configuration Release --no-restore
       - name: Test
-        id: test
-        continue-on-error: true
-        shell: bash
-        run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --verbosity normal > test.log 2>&1
-      - name: Upload test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-diagnostics
-          path: |
-            test.log
-            **/TestResults/**
-      - name: Stop after test failure
-        if: steps.test.outcome == 'failure'
-        run: exit 1
+        run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
