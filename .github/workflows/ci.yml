@@ -16,32 +16,23 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Regenerate solution for validation
-        shell: bash
-        run: |
-          rm -f VibeCast.sln
-          dotnet new sln --name VibeCast --format sln
-          find src tests -name '*.csproj' -print0 | sort -z | xargs -0 dotnet sln VibeCast.sln add
-      - name: Upload generated solution
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-solution
-          path: VibeCast.sln
       - name: Restore
-        id: restore
-        continue-on-error: true
-        shell: bash
-        run: dotnet restore VibeCast.sln --verbosity minimal > restore.log 2>&1
-      - name: Upload restore diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: restore-diagnostics
-          path: restore.log
-      - name: Stop after restore failure
-        if: steps.restore.outcome == 'failure'
-        run: exit 1
+        run: dotnet restore VibeCast.sln --verbosity minimal
       - name: Build
         run: dotnet build VibeCast.sln --configuration Release --no-restore
       - name: Test
-        run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --verbosity normal > test.log 2>&1
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics
+          path: |
+            test.log
+            **/TestResults/**
+      - name: Stop after test failure
+        if: steps.test.outcome == 'failure'
+        run: exit 1
