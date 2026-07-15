@@ -6,13 +6,15 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -27,12 +29,21 @@ jobs:
             --project src/VibeCast.Infrastructure/VibeCast.Infrastructure.csproj \
             --startup-project src/VibeCast.Web/VibeCast.Web.csproj \
             --output-dir Data/Migrations
-      - name: Upload generated migrations
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-migrations
-          path: src/VibeCast.Infrastructure/Data/Migrations
       - name: Build
         run: dotnet build VibeCast.sln --configuration Release --no-restore
       - name: Test
         run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+      - name: Commit generated migration files
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if git diff --quiet -- src/VibeCast.Infrastructure/Data/Migrations; then
+            echo "Migration files are already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/VibeCast.Infrastructure/Data/Migrations
+          git commit -m "Replace migration with generated EF Core artifacts [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
