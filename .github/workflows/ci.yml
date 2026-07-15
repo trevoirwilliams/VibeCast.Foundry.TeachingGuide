@@ -17,7 +17,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Restore
-        run: dotnet restore VibeCast.sln
+        shell: bash
+        run: |
+          if ! dotnet restore VibeCast.sln --verbosity minimal > restore.log 2>&1; then
+            cat restore.log
+            exit 1
+          fi
       - name: Build
         run: dotnet build VibeCast.sln --configuration Release --no-restore
       - name: Test
