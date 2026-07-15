@@ -17,12 +17,19 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Restore
+        id: restore
+        continue-on-error: true
         shell: bash
-        run: |
-          if ! dotnet restore VibeCast.sln --verbosity minimal > restore.log 2>&1; then
-            cat restore.log
-            exit 1
-          fi
+        run: dotnet restore VibeCast.sln --verbosity minimal > restore.log 2>&1
+      - name: Upload restore diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-diagnostics
+          path: restore.log
+      - name: Stop after restore failure
+        if: steps.restore.outcome == 'failure'
+        run: exit 1
       - name: Build
         run: dotnet build VibeCast.sln --configuration Release --no-restore
       - name: Test
