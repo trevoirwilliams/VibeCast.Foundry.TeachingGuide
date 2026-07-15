@@ -16,6 +16,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Regenerate solution for validation
+        shell: bash
+        run: |
+          rm -f VibeCast.sln
+          dotnet new sln --name VibeCast --format sln
+          find src tests -name '*.csproj' -print0 | sort -z | xargs -0 dotnet sln VibeCast.sln add
+      - name: Upload generated solution
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-solution
+          path: VibeCast.sln
       - name: Restore
         id: restore
         continue-on-error: true
