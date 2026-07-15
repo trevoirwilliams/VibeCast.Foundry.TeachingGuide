@@ -1,0 +1,44 @@
+@page "/jobs"
+@attribute [Authorize]
+@inject IDbContextFactory<VibeCastDbContext> DbFactory
+
+<PageTitle>Processing jobs</PageTitle>
+<div class="d-flex justify-content-between align-items-center">
+  <div><h1>Processing jobs</h1><p class="text-secondary">Background work is isolated from the interactive Blazor circuit.</p></div>
+  <button class="btn btn-outline-secondary" @onclick="LoadAsync">Refresh</button>
+</div>
+
+<table class="table align-middle">
+  <thead><tr><th>Job</th><th>Status</th><th>Created</th><th>Reference</th></tr></thead>
+  <tbody>
+  @foreach (var job in jobs)
+  {
+    <tr>
+      <td>@job.JobType</td>
+      <td><span class="badge text-bg-@Badge(job.Status)">@job.Status</span></td>
+      <td>@job.CreatedAtUtc.LocalDateTime.ToString("g")</td>
+      <td><code>@job.SubjectReference</code></td>
+    </tr>
+  }
+  </tbody>
+</table>
+
+@code {
+  private List<ProcessingJob> jobs = [];
+
+  protected override Task OnInitializedAsync() => LoadAsync();
+
+  private async Task LoadAsync()
+  {
+    await using var db = await DbFactory.CreateDbContextAsync();
+    jobs = await db.ProcessingJobs.AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).Take(50).ToListAsync();
+  }
+
+  private static string Badge(ProcessingJobStatus status) => status switch
+  {
+    ProcessingJobStatus.Completed => "success",
+    ProcessingJobStatus.Failed => "danger",
+    ProcessingJobStatus.Running => "primary",
+    _ => "secondary"
+  };
+}

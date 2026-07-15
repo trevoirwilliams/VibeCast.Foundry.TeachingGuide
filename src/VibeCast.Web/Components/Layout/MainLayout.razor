@@ -1,0 +1,26 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <NavMenu />
+  </aside>
+  <main>
+    <header class="topbar">
+      <div>
+        <strong>VibeCast</strong>
+        <span class="text-secondary ms-2">Enterprise multimodal teaching application</span>
+      </div>
+      <AuthorizeView>
+        <Authorized Context="auth">
+          <span class="small">@auth.User.Identity?.Name · <a href="/Account/Logout">Sign out</a></span>
+        </Authorized>
+        <NotAuthorized>
+          <span class="small"><a href="/Account/Login">Sign in</a></span>
+        </NotAuthorized>
+      </AuthorizeView>
+    </header>
+    <article class="content px-4 py-4">
+      @Body
+    </article>
+  </main>
+</div>

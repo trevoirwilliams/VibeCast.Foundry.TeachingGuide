@@ -1,0 +1,34 @@
+@page "/"
+@attribute [Authorize]
+@inject IDbContextFactory<VibeCastDbContext> DbFactory
+
+<PageTitle>VibeCast Dashboard</PageTitle>
+<h1>VibeCast operations</h1>
+<p class="lead">The non-AI application plumbing is ready. Section 04 begins at the model-client integration boundary.</p>
+
+<div class="row g-3 mt-2">
+  <div class="col-md-4"><div class="metric-card"><span>Episodes</span><strong>@episodeCount</strong></div></div>
+  <div class="col-md-4"><div class="metric-card"><span>Media assets</span><strong>@mediaCount</strong></div></div>
+  <div class="col-md-4"><div class="metric-card"><span>Active jobs</span><strong>@activeJobCount</strong></div></div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-body">
+    <h2 class="h5">Next implementation seam</h2>
+    <p class="mb-0">Register provider-neutral AI clients, connect the application to Microsoft Foundry, add streaming, cancellation, middleware, and deterministic tests.</p>
+  </div>
+</div>
+
+@code {
+  private int episodeCount;
+  private int mediaCount;
+  private int activeJobCount;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await using var db = await DbFactory.CreateDbContextAsync();
+    episodeCount = await db.Episodes.CountAsync();
+    mediaCount = await db.MediaAssets.CountAsync();
+    activeJobCount = await db.ProcessingJobs.CountAsync(job => job.Status == ProcessingJobStatus.Queued || job.Status == ProcessingJobStatus.Running);
+  }
+}

@@ -1,0 +1,16 @@
+services:
+  vibecast:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__VibeCast: Data Source=/app/.vibecast/vibecast.db
+      BlobStorage__RootPath: /app/.vibecast/blobs
+    volumes:
+      - vibecast-data:/app/.vibecast
+
+volumes:
+  vibecast-data:

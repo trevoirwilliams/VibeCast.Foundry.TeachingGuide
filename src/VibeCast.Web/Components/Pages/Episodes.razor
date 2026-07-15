@@ -1,0 +1,47 @@
+@page "/episodes"
+@attribute [Authorize]
+@inject IDbContextFactory<VibeCastDbContext> DbFactory
+
+<PageTitle>Episodes</PageTitle>
+<div class="d-flex justify-content-between align-items-center">
+  <div><h1>Episodes</h1><p class="text-secondary">Editorial records ready for AI-assisted planning.</p></div>
+  <a class="btn btn-primary" href="/episodes/new">Create episode</a>
+</div>
+
+@if (episodes is null)
+{
+  <p>Loading...</p>
+}
+else if (episodes.Count == 0)
+{
+  <div class="alert alert-info">No episodes have been created.</div>
+}
+else
+{
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Title</th><th>Status</th><th>Created</th><th>Schedule</th></tr></thead>
+      <tbody>
+      @foreach (var episode in episodes)
+      {
+        <tr>
+          <td><strong>@episode.Title</strong><div class="small text-secondary">@episode.Description</div></td>
+          <td><span class="badge text-bg-secondary">@episode.Status</span></td>
+          <td>@episode.CreatedAtUtc.LocalDateTime.ToString("g")</td>
+          <td>@(episode.ScheduledForUtc?.LocalDateTime.ToString("g") ?? "Not scheduled")</td>
+        </tr>
+      }
+      </tbody>
+    </table>
+  </div>
+}
+
+@code {
+  private List<Episode>? episodes;
+
+  protected override async Task OnInitializedAsync()
+  {
+    await using var db = await DbFactory.CreateDbContextAsync();
+    episodes = await db.Episodes.AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
+  }
+}

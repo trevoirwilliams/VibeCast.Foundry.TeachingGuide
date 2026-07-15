@@ -1,0 +1,71 @@
+@page "/episodes/new"
+@attribute [Authorize]
+@inject IDbContextFactory<VibeCastDbContext> DbFactory
+@inject VibeCast.Application.Validation.IValidator<CreateEpisodeRequest> Validator
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>New episode</PageTitle>
+<h1>Create an episode</h1>
+<p class="text-secondary">The form and persistence workflow are complete; AI planning is intentionally deferred.</p>
+
+@if (errors.Count > 0)
+{
+  <div class="alert alert-danger"><ul class="mb-0">@foreach (var error in errors) { <li>@error</li> }</ul></div>
+}
+
+<EditForm Model="model" OnValidSubmit="SaveAsync" FormName="create-episode">
+  <DataAnnotationsValidator />
+  <ValidationSummary />
+  <div class="mb-3">
+    <label class="form-label">Title</label>
+    <InputText class="form-control" @bind-Value="model.Title" />
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Description</label>
+    <InputTextArea class="form-control" rows="6" @bind-Value="model.Description" />
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Schedule (optional)</label>
+    <InputDate class="form-control" @bind-Value="model.ScheduledForUtc" />
+  </div>
+  <button class="btn btn-primary" disabled="@saving">@(saving ? "Saving..." : "Save episode")</button>
+</EditForm>
+
+@code {
+  private readonly CreateEpisodeRequest model = new();
+  private readonly List<string> errors = [];
+  private bool saving;
+
+  private async Task SaveAsync()
+  {
+    errors.Clear();
+    var validation = Validator.Validate(model);
+    if (!validation.IsValid)
+    {
+      errors.AddRange(validation.Errors.Select(x => x.ErrorMessage));
+      return;
+    }
+
+    saving = true;
+    var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    var ownerId = authenticationState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrWhiteSpace(ownerId))
+    {
+      errors.Add("The authenticated user identifier is unavailable.");
+      saving = false;
+      return;
+    }
+
+    var episode = Episode.Create(model.Title, model.Description, ownerId);
+    if (model.ScheduledForUtc is { } scheduled)
+    {
+      episode.Schedule(scheduled);
+    }
+
+    await using var db = await DbFactory.CreateDbContextAsync();
+    db.Episodes.Add(episode);
+    await db.SaveChangesAsync();
+    Navigation.NavigateTo("/episodes");
+  }
+}

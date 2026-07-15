@@ -1,0 +1,110 @@
+@page "/media/upload"
+@attribute [Authorize]
+@inject IDbContextFactory<VibeCastDbContext> DbFactory
+@inject VibeCast.Application.Abstractions.Storage.IBlobStorage BlobStorage
+@inject VibeCast.Application.Abstractions.Jobs.IBackgroundJobQueue JobQueue
+@inject VibeCast.Application.Validation.IValidator<MediaUploadRequest> Validator
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Upload media</PageTitle>
+<h1>Upload media</h1>
+<p class="text-secondary">Uploads are stored behind an abstraction and queued for background processing.</p>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+  <div class="alert @(success ? "alert-success" : "alert-danger")">@message</div>
+}
+
+<div class="card">
+  <div class="card-body">
+    <InputFile OnChange="SelectFile" class="form-control" />
+    @if (selectedFile is not null)
+    {
+      <dl class="row mt-3 mb-3">
+        <dt class="col-sm-3">File</dt><dd class="col-sm-9">@selectedFile.Name</dd>
+        <dt class="col-sm-3">Content type</dt><dd class="col-sm-9">@selectedFile.ContentType</dd>
+        <dt class="col-sm-3">Size</dt><dd class="col-sm-9">@($"{selectedFile.Size / 1024d:N1} KB")</dd>
+      </dl>
+      <button class="btn btn-primary" @onclick="UploadAsync" disabled="@uploading">@(uploading ? "Uploading..." : "Upload and queue")</button>
+    }
+  </div>
+</div>
+
+@code {
+  private IBrowserFile? selectedFile;
+  private bool uploading;
+  private bool success;
+  private string? message;
+
+  private void SelectFile(InputFileChangeEventArgs args)
+  {
+    selectedFile = args.File;
+    message = null;
+  }
+
+  private async Task UploadAsync()
+  {
+    if (selectedFile is null) return;
+
+    var request = new MediaUploadRequest(selectedFile.Name, selectedFile.ContentType, selectedFile.Size, null);
+    var validation = Validator.Validate(request);
+    if (!validation.IsValid)
+    {
+      success = false;
+      message = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage));
+      return;
+    }
+
+    uploading = true;
+    try
+    {
+      var auth = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+      var ownerId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? throw new InvalidOperationException("The authenticated user identifier is unavailable.");
+
+      await using var stream = selectedFile.OpenReadStream(MediaUploadValidator.MaximumSizeBytes);
+      var stored = await BlobStorage.SaveAsync(stream, selectedFile.Name, selectedFile.ContentType);
+      var asset = MediaAsset.Create(null, ownerId, stored.OriginalFileName, stored.StorageKey, stored.ContentType, stored.SizeBytes);
+      var job = ProcessingJob.Queue(ownerId, "Prepare uploaded media", asset.Id.ToString());
+
+      await using (var db = await DbFactory.CreateDbContextAsync())
+      {
+        db.MediaAssets.Add(asset);
+        db.ProcessingJobs.Add(job);
+        await db.SaveChangesAsync();
+      }
+
+      await JobQueue.QueueAsync(VibeCast.Application.Abstractions.Jobs.BackgroundJob.Create(
+        "Prepare uploaded media",
+        async (services, cancellationToken) =>
+        {
+          var factory = services.GetRequiredService<IDbContextFactory<VibeCastDbContext>>();
+          await using var db = await factory.CreateDbContextAsync(cancellationToken);
+          var persistedJob = await db.ProcessingJobs.FindAsync([job.Id], cancellationToken);
+          var persistedAsset = await db.MediaAssets.FindAsync([asset.Id], cancellationToken);
+          if (persistedJob is null || persistedAsset is null) return;
+
+          persistedJob.Start();
+          persistedAsset.MarkProcessing();
+          await db.SaveChangesAsync(cancellationToken);
+          await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+          persistedAsset.MarkReady();
+          persistedJob.Complete();
+          await db.SaveChangesAsync(cancellationToken);
+        }));
+
+      success = true;
+      message = "The media asset was stored and queued for processing.";
+      selectedFile = null;
+    }
+    catch (Exception exception)
+    {
+      success = false;
+      message = exception.Message;
+    }
+    finally
+    {
+      uploading = false;
+    }
+  }
+}
