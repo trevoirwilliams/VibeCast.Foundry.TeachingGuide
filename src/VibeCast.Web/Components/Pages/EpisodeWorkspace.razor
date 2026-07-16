@@ -1,0 +1,83 @@
+@page "/episodes/{Id}"
+@attribute [Authorize]
+
+<PageTitle>Episode workspace</PageTitle>
+
+<div class="breadcrumb-line"><a href="/episodes">Episodes</a><span>/</span><span>Responsible AI in Production</span></div>
+<div class="page-heading episode-heading">
+  <div>
+    <div class="eyebrow">Episode @Id</div>
+    <h1>Responsible AI in Production</h1>
+    <p>Central workspace for the brief, AI plan, transcript, media, enterprise evidence, workflow state, and evaluation results.</p>
+  </div>
+  <div class="page-actions">
+    <span class="status-badge badge-neutral">Draft</span>
+    <button class="btn btn-outline-secondary" disabled>Save changes</button>
+    <button class="btn btn-primary" disabled>Generate plan</button>
+  </div>
+</div>
+
+<div class="workspace-tabs" role="tablist">
+  @foreach (var tab in tabs)
+  {
+    <button class="@(selectedTab == tab ? "active" : null)" @onclick="() => selectedTab = tab">@tab</button>
+  }
+</div>
+
+<section class="surface-card workspace-panel">
+  @if (selectedTab == "Overview")
+  {
+    <div class="two-column-detail">
+      <div>
+        <div class="section-heading"><div><h2>Editorial brief</h2><p>The application-owned inputs that will constrain generation.</p></div><button class="btn btn-sm btn-outline-secondary" disabled>Edit brief</button></div>
+        <dl class="detail-grid">
+          <dt>Target audience</dt><dd>Engineering leaders and enterprise .NET developers</dd>
+          <dt>Objective</dt><dd>Explain how evaluation, security controls, and operational governance make AI systems production-ready.</dd>
+          <dt>Tone</dt><dd>Professional and technically authoritative</dd>
+          <dt>Language</dt><dd>English (United States)</dd>
+          <dt>Publication</dt><dd>Not scheduled</dd>
+        </dl>
+      </div>
+      <aside class="readiness-panel">
+        <div class="readiness-icon">AI</div>
+        <h3>Planning service unavailable</h3>
+        <p>The interface is ready for an <code>IEpisodePlanningService</code>, but this branch intentionally contains no model provider or fake AI response.</p>
+        <a href="/settings">Review integration settings</a>
+      </aside>
+    </div>
+  }
+  else if (selectedTab == "AI Planner")
+  {
+    <div class="empty-state large"><div class="empty-icon">✦</div><div><h2>Generate a structured episode plan</h2><p>This surface will display segments, key messages, suggested evidence, media requirements, and editorial risks after the <code>IChatClient</code> pipeline is implemented.</p><button class="btn btn-primary" disabled>Generate plan</button><small>Requires Microsoft Foundry connection</small></div></div>
+  }
+  else if (selectedTab == "Transcript")
+  {
+    <div class="split-panel"><div><h2>Transcript workspace</h2><p>Review source audio, speaker segments, timestamps, and corrected text.</p><div class="empty-state compact"><div class="empty-icon">Aa</div><div><strong>No transcript yet</strong><p>Upload audio and implement speech-to-text in the multimodal section.</p></div></div></div><aside class="panel-muted"><h3>Transcript controls</h3><label class="form-label">Language</label><select class="form-select" disabled><option>English (United States)</option></select><label class="form-label mt-3">Speaker identification</label><div class="form-check"><input class="form-check-input" type="checkbox" disabled /><label class="form-check-label">Detect speakers</label></div></aside></div>
+  }
+  else if (selectedTab == "Media")
+  {
+    <div class="section-heading"><div><h2>Episode media</h2><p>Associate audio, images, documents, and generated promotional assets.</p></div><a class="btn btn-sm btn-outline-primary" href="/media/upload">Add media</a></div>
+    <div class="media-card-grid"><div class="media-tile placeholder-tile"><div>＋</div><strong>Add source media</strong><small>Files remain unprocessed on this branch.</small></div></div>
+  }
+  else if (selectedTab == "Knowledge")
+  {
+    <div class="section-heading"><div><h2>Grounding evidence</h2><p>Choose permission-aware sources that will support generated claims.</p></div><a class="btn btn-sm btn-outline-primary" href="/knowledge">Manage sources</a></div>
+    <div class="empty-state compact"><div class="empty-icon">◇</div><div><strong>No knowledge source attached</strong><p>RAG ingestion, retrieval, citations, and insufficient-evidence behavior are implemented in Section 07.</p></div></div>
+  }
+  else if (selectedTab == "Workflow")
+  {
+    <h2>Editorial workflow</h2><p>Track deterministic stages, specialist agents, approvals, and resumable execution.</p>
+    <div class="workflow-strip"><div class="complete"><span>1</span><strong>Brief</strong><small>Ready</small></div><i></i><div><span>2</span><strong>Research</strong><small>Not started</small></div><i></i><div><span>3</span><strong>Draft</strong><small>Not started</small></div><i></i><div><span>4</span><strong>Approval</strong><small>Not started</small></div></div>
+  }
+  else
+  {
+    <div class="section-heading"><div><h2>Evaluation evidence</h2><p>Quality, groundedness, safety, and regression results for this episode.</p></div><a class="btn btn-sm btn-outline-primary" href="/evaluations">Open evaluations</a></div>
+    <div class="metric-grid compact"><div class="metric-card"><div class="metric-label">Quality</div><div class="metric-value">—</div><div class="metric-note">No evaluation run</div></div><div class="metric-card"><div class="metric-label">Groundedness</div><div class="metric-value">—</div><div class="metric-note">No evidence generated</div></div><div class="metric-card"><div class="metric-label">Safety</div><div class="metric-value">—</div><div class="metric-note">Guardrails not configured</div></div></div>
+  }
+</section>
+
+@code {
+  [Parameter] public string Id { get; set; } = string.Empty;
+  private readonly string[] tabs = ["Overview", "AI Planner", "Transcript", "Media", "Knowledge", "Workflow", "Evaluation"];
+  private string selectedTab = "Overview";
+}
