@@ -2,14 +2,18 @@
 
 This branch contains the production-shaped starter application for **Section 04: Foundations of Enterprise Generative AI for .NET**.
 
-The conventional .NET plumbing is already implemented so that course demonstrations can concentrate on AI client abstractions, Microsoft Foundry connectivity, model calls, streaming, telemetry, resilience, and deterministic tests.
+The application presents a complete authenticated product shell so demonstrations can begin at the AI integration boundary rather than spending course time on ordinary Blazor, CRUD, database, and page-layout work.
 
 ## Included
 
 - .NET 10 and C# 14
 - Blazor Web App using Interactive Server rendering
 - ASP.NET Core Identity with SQLite
-- Authenticated navigation, dashboard, forms, episode management, media upload, and job status screens
+- Authenticated application shell with grouped navigation and responsive layout
+- Dashboard, episode list, episode brief form, and tabbed episode workspace
+- Media library and upload/processing form
+- Processing jobs, knowledge sources, editorial workflows, and approval queue
+- Evaluation, observability, and settings surfaces
 - EF Core context, initial migration, and development seed data
 - Episode, media asset, processing job, and user profile domain entities
 - Local blob-storage implementation behind `IBlobStorage`
@@ -21,9 +25,38 @@ The conventional .NET plumbing is already implemented so that course demonstrati
 - Domain, application, and integration test projects
 - GitHub Actions CI
 
-## Deliberately not implemented
+## UI-scaffold boundary
 
-The starter branch does **not** configure an AI provider or register `IChatClient` / `IEmbeddingGenerator`. Those are the observable changes developed during Section 04.
+The authenticated pages intentionally use presentation data and visual states. They do **not** invoke EF Core business persistence, blob storage, background jobs, AI providers, retrieval, agents, evaluations, or telemetry queries.
+
+The existing infrastructure remains available for later course checkpoints, but the Section 04 pages expose clear seams where learners will add:
+
+- `IChatClient` and `IEmbeddingGenerator`
+- Microsoft Foundry connectivity
+- Structured output, validation, and repair
+- Multimodal processing
+- RAG ingestion and retrieval
+- Microsoft Agent Framework workflows
+- Human approval and durable execution
+- Evaluation and OpenTelemetry evidence
+
+## Authenticated routes
+
+- `/dashboard`
+- `/episodes`
+- `/episodes/create`
+- `/episodes/{id}`
+- `/media`
+- `/media/upload`
+- `/jobs`
+- `/knowledge`
+- `/knowledge/create`
+- `/workflows`
+- `/workflows/{id}`
+- `/approvals`
+- `/evaluations`
+- `/observability`
+- `/settings`
 
 ## Run locally
 
