@@ -1,0 +1,52 @@
+@page "/knowledge"
+@attribute [Authorize]
+
+<PageTitle>Knowledge sources</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">AI operations</div><h1>Knowledge sources</h1><p>Define the enterprise evidence that will later be ingested, chunked, embedded, indexed, filtered, and cited.</p></div>
+  <a class="btn btn-primary" href="/knowledge/create">Add knowledge source</a>
+</div>
+
+<div class="surface-card filter-bar">
+  <div class="search-field"><span>⌕</span><input class="form-control" placeholder="Search knowledge sources" /></div>
+  <select class="form-select"><option>All source types</option><option>Uploaded documents</option><option>Blob container</option><option>Website</option></select>
+  <select class="form-select"><option>All indexing states</option><option>Ready</option><option>Not indexed</option><option>Requires review</option></select>
+</div>
+
+<section class="surface-card mt-3">
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Knowledge source</th><th>Type</th><th>Documents</th><th>Indexing status</th><th>Permission scope</th><th>Last synchronized</th></tr></thead>
+      <tbody>
+        @foreach (var source in sources)
+        {
+          <tr>
+            <td><strong>@source.Name</strong><small>@source.Description</small></td>
+            <td>@source.Type</td>
+            <td>@source.Documents</td>
+            <td><span class="status-badge @source.BadgeClass">@source.Status</span></td>
+            <td>@source.Scope</td>
+            <td>@source.Synchronized</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="architecture-callout mt-4">
+  <div><strong>Future RAG pipeline</strong><p>Source → reader → normalization → semantic chunking → embeddings → vector and lexical index → permission-aware retrieval → cited response.</p></div>
+  <a href="/episodes/103">Open RAG episode</a>
+</div>
+
+@code {
+  private readonly SourceRow[] sources =
+  [
+    new("Brand and Safety Policies", "Approved brand language, prohibited claims, and escalation guidance.", "Uploaded documents", "6", "Not indexed", "badge-warning", "Editorial team", "Never"),
+    new("Product Documentation", "Technical material used to support product-focused episodes.", "Blob container", "18", "Ready shell", "badge-info", "Engineering", "Yesterday"),
+    new("Legal Review Guidance", "Restricted evidence for compliance-oriented review steps.", "Uploaded documents", "4", "Requires review", "badge-neutral", "Compliance", "Jul 12")
+  ];
+
+  private sealed record SourceRow(string Name, string Description, string Type, string Documents, string Status, string BadgeClass, string Scope, string Synchronized);
+}
