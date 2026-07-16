@@ -14,11 +14,11 @@ public sealed class LoginModel(SignInManager<ApplicationUser> signInManager) : P
     [BindProperty(SupportsGet = true)]
     public string? ReturnUrl { get; set; }
 
-    public void OnGet() => ReturnUrl ??= Url.Content("~/");
+    public void OnGet() => ReturnUrl ??= Url.Content("~/dashboard");
 
     public async Task<IActionResult> OnPostAsync()
     {
-        ReturnUrl ??= Url.Content("~/");
+        ReturnUrl ??= Url.Content("~/dashboard");
         if (!ModelState.IsValid) return Page();
 
         var result = await signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
