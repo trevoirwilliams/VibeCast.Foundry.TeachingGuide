@@ -27,7 +27,7 @@ public sealed class RegisterModel(UserManager<ApplicationUser> userManager, Sign
         if (result.Succeeded)
         {
             await signInManager.SignInAsync(user, isPersistent: false);
-            return LocalRedirect("~/");
+            return LocalRedirect("~/dashboard");
         }
 
         foreach (var error in result.Errors)
