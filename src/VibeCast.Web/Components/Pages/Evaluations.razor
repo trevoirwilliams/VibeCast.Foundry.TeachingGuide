@@ -1,0 +1,52 @@
+@page "/evaluations"
+@attribute [Authorize]
+
+<PageTitle>Evaluations</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">Operations</div><h1>Evaluations</h1><p>Prepare the acceptance surface for quality, groundedness, safety, citation correctness, and regression decisions.</p></div>
+  <button class="btn btn-primary" disabled>Run evaluation</button>
+</div>
+
+<div class="readiness-banner">
+  <div class="readiness-icon">◎</div>
+  <div><strong>No evaluator pipeline is configured</strong><p>Evaluation datasets, model invocations, thresholds, and results storage are added in the security and evaluation section.</p></div>
+</div>
+
+<div class="metric-grid mt-4">
+  <div class="metric-card"><div class="metric-label">Quality threshold</div><div class="metric-value">≥ 0.82</div><div class="metric-note">Target acceptance rule</div></div>
+  <div class="metric-card"><div class="metric-label">Groundedness</div><div class="metric-value">≥ 0.90</div><div class="metric-note">Target evidence alignment</div></div>
+  <div class="metric-card"><div class="metric-label">Safety violations</div><div class="metric-value">0</div><div class="metric-note">Required release condition</div></div>
+  <div class="metric-card"><div class="metric-label">Regression status</div><div class="metric-value">—</div><div class="metric-note">No baseline compared</div></div>
+</div>
+
+<section class="surface-card mt-4">
+  <div class="section-heading"><div><h2>Evaluation runs</h2><p>Illustrative history showing the shape of future acceptance evidence.</p></div></div>
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Run</th><th>Dataset</th><th>Model deployment</th><th>Quality</th><th>Groundedness</th><th>Safety</th><th>Decision</th></tr></thead>
+      <tbody>
+        @foreach (var run in runs)
+        {
+          <tr><td><strong>@run.Id</strong><small>@run.Date</small></td><td>@run.Dataset</td><td><code>@run.Model</code></td><td>@run.Quality</td><td>@run.Groundedness</td><td><span class="status-badge @run.SafetyClass">@run.Safety</span></td><td><span class="status-badge @run.DecisionClass">@run.Decision</span></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="dashboard-grid mt-4">
+  <section class="surface-card"><div class="section-heading"><div><h2>Dataset composition</h2><p>Representative, edge, adversarial, and insufficient-evidence cases.</p></div></div><div class="dataset-bars"><div><span>Representative cases</span><strong>24</strong><i style="width: 60%"></i></div><div><span>Edge cases</span><strong>8</strong><i style="width: 25%"></i></div><div><span>Adversarial cases</span><strong>6</strong><i style="width: 18%"></i></div><div><span>Insufficient evidence</span><strong>4</strong><i style="width: 12%"></i></div></div></section>
+  <aside class="surface-card"><div class="section-heading"><div><h2>Release gate</h2><p>Production deployment remains blocked until all required checks pass.</p></div></div><div class="check-list"><div><span class="check pending">!</span><div><strong>Quality threshold</strong><small>No current result</small></div></div><div><span class="check pending">!</span><div><strong>Safety suite</strong><small>No current result</small></div></div><div><span class="check pending">!</span><div><strong>RAG evidence checks</strong><small>No current result</small></div></div></div></aside>
+</div>
+
+@code {
+  private readonly EvaluationRow[] runs =
+  [
+    new("eval-003", "Episode planning golden set", "foundry-chat", "0.84", "0.91", "Pass", "badge-success", "Illustrative pass", "badge-info", "Jul 14"),
+    new("eval-002", "RAG adversarial set", "foundry-chat", "0.79", "0.86", "Review", "badge-warning", "Illustrative fail", "badge-danger", "Jul 12"),
+    new("eval-001", "Structured output smoke set", "foundry-chat", "0.88", "N/A", "Pass", "badge-success", "Illustrative pass", "badge-info", "Jul 10")
+  ];
+
+  private sealed record EvaluationRow(string Id, string Dataset, string Model, string Quality, string Groundedness, string Safety, string SafetyClass, string Decision, string DecisionClass, string Date);
+}
