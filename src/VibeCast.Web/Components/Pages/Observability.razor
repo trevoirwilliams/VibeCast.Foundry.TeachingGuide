@@ -1,0 +1,48 @@
+@page "/observability"
+@attribute [Authorize]
+
+<PageTitle>Observability</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">Operations</div><h1>Observability</h1><p>Define the operational view for model requests, retrieval, tools, workflows, tokens, latency, cost, and failure behavior.</p></div>
+  <button class="btn btn-outline-secondary" disabled>Refresh telemetry</button>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-card"><div class="metric-label">Model requests</div><div class="metric-value">—</div><div class="metric-note">No AI spans emitted</div></div>
+  <div class="metric-card"><div class="metric-label">Token usage</div><div class="metric-value">—</div><div class="metric-note">Usage collection pending</div></div>
+  <div class="metric-card"><div class="metric-label">Average latency</div><div class="metric-value">—</div><div class="metric-note">No request samples</div></div>
+  <div class="metric-card"><div class="metric-label">Tool failures</div><div class="metric-value">—</div><div class="metric-note">No tool pipeline</div></div>
+</div>
+
+<div class="dashboard-grid mt-4">
+  <section class="surface-card">
+    <div class="section-heading"><div><h2>Request activity</h2><p>Future request volume and latency by operation.</p></div><select class="form-select form-select-sm chart-filter" disabled><option>Last 24 hours</option></select></div>
+    <div class="chart-placeholder">
+      <div class="chart-grid-lines"></div>
+      <div class="chart-empty"><span>⌁</span><strong>No telemetry available</strong><small>OpenTelemetry spans will populate this chart after AI clients are registered.</small></div>
+    </div>
+  </section>
+
+  <aside class="surface-card">
+    <div class="section-heading"><div><h2>Instrumentation coverage</h2><p>Expected production spans and measurements.</p></div></div>
+    <div class="check-list">
+      <div><span class="check ready">✓</span><div><strong>ASP.NET Core baseline</strong><small>HTTP and runtime instrumentation registered</small></div></div>
+      <div><span class="check pending">!</span><div><strong>Model operations</strong><small>Awaiting AI client middleware</small></div></div>
+      <div><span class="check pending">!</span><div><strong>Retrieval operations</strong><small>Awaiting RAG pipeline</small></div></div>
+      <div><span class="check pending">!</span><div><strong>Tool and workflow spans</strong><small>Awaiting agent implementation</small></div></div>
+    </div>
+  </aside>
+</div>
+
+<section class="surface-card mt-4">
+  <div class="section-heading"><div><h2>Recent traces</h2><p>The table structure is ready for correlated application, model, retrieval, tool, and workflow spans.</p></div></div>
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Trace</th><th>Operation</th><th>Episode</th><th>Duration</th><th>Tokens</th><th>Status</th><th>Started</th></tr></thead>
+      <tbody><tr><td colspan="7"><div class="empty-state table-empty"><div class="empty-icon">⌁</div><div><strong>No AI traces captured</strong><p>Start with an instrumented <code>IChatClient</code>, then add retrieval, tool, and workflow activities.</p></div></div></td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<div class="architecture-callout mt-4"><div><strong>Operational acceptance</strong><p>Dashboards are not enough. Each alert must have an owner, threshold, investigation path, and safe recovery action.</p></div><a href="/evaluations">Review quality gates</a></div>

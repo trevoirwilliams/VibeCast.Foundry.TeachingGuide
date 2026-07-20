@@ -1,0 +1,60 @@
+@page "/jobs"
+@attribute [Authorize]
+
+<PageTitle>Processing jobs</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">AI operations</div><h1>Processing jobs</h1><p>Visualize asynchronous content work, progress, failures, and recovery before the background execution pipeline is connected.</p></div>
+  <button class="btn btn-outline-secondary" disabled>Refresh jobs</button>
+</div>
+
+<div class="metric-grid compact">
+  <div class="metric-card"><div class="metric-label">Queued</div><div class="metric-value">2</div><div class="metric-note">Waiting for execution</div></div>
+  <div class="metric-card"><div class="metric-label">Running</div><div class="metric-value">0</div><div class="metric-note">No worker connected</div></div>
+  <div class="metric-card"><div class="metric-label">Completed</div><div class="metric-value">4</div><div class="metric-note">Illustrative history</div></div>
+  <div class="metric-card"><div class="metric-label">Failed</div><div class="metric-value">1</div><div class="metric-note">Recovery surface shown</div></div>
+</div>
+
+<div class="surface-card filter-bar mt-3">
+  <div class="search-field"><span>⌕</span><input class="form-control" placeholder="Search jobs" /></div>
+  <select class="form-select"><option>All job types</option><option>Transcription</option><option>Image analysis</option><option>Knowledge ingestion</option><option>Editorial workflow</option></select>
+  <select class="form-select"><option>All statuses</option><option>Queued</option><option>Running</option><option>Completed</option><option>Failed</option></select>
+</div>
+
+<section class="surface-card mt-3">
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Job</th><th>Episode</th><th>Status</th><th>Progress</th><th>Submitted</th><th>Actions</th></tr></thead>
+      <tbody>
+        @foreach (var job in jobs)
+        {
+          <tr>
+            <td><strong>@job.Name</strong><small>@job.Reference</small></td>
+            <td>@job.Episode</td>
+            <td><span class="status-badge @job.BadgeClass">@job.Status</span></td>
+            <td><div class="progress job-progress" role="progressbar"><div class="progress-bar" style="width: @job.Progress%"></div></div><small>@job.Progress%</small></td>
+            <td>@job.Submitted</td>
+            <td><button class="btn btn-sm btn-outline-secondary" disabled>Details</button> <button class="btn btn-sm btn-outline-secondary" disabled>@job.Action</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="readiness-banner mt-4">
+  <div class="readiness-icon">⇢</div>
+  <div><strong>Background execution is not invoked from the UI shell</strong><p>Later checkpoints connect durable status, cancellation, retries, dead-letter recovery, ownership, and telemetry to this surface.</p></div>
+</div>
+
+@code {
+  private readonly JobRow[] jobs =
+  [
+    new("Transcribe source interview", "media/responsible-ai-interview.wav", "Episode 104", "Queued", "badge-warning", 0, "12 minutes ago", "Cancel"),
+    new("Index brand policy", "knowledge/brand-and-safety-policy.pdf", "Shared knowledge", "Queued", "badge-warning", 0, "Yesterday", "Cancel"),
+    new("Generate promotional artwork", "media/episode-102-cover.png", "Episode 102", "Completed", "badge-success", 100, "Jul 14", "Open"),
+    new("Analyze reference image", "media/cover-reference.png", "Episode 102", "Failed", "badge-danger", 35, "Jul 14", "Retry")
+  ];
+
+  private sealed record JobRow(string Name, string Reference, string Episode, string Status, string BadgeClass, int Progress, string Submitted, string Action);
+}

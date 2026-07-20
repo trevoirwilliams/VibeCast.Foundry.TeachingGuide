@@ -1,0 +1,104 @@
+@page "/"
+@page "/dashboard"
+@attribute [Authorize]
+
+<PageTitle>VibeCast Dashboard</PageTitle>
+
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Workspace overview</div>
+    <h1>Good afternoon. Your content operation is ready.</h1>
+    <p>Use the application shell to explore the workflows that will receive AI capabilities throughout the course.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-primary" href="/media/upload">Upload media</a>
+    <a class="btn btn-primary" href="/episodes/create">Create episode</a>
+  </div>
+</div>
+
+<div class="readiness-banner">
+  <div class="readiness-icon">AI</div>
+  <div>
+    <strong>Microsoft Foundry connection pending</strong>
+    <p>The product interface is available, but model calls, embeddings, retrieval, tools, and workflows are intentionally not configured on this branch.</p>
+  </div>
+  <a href="/settings" class="btn btn-sm btn-light">View configuration</a>
+</div>
+
+<div class="metric-grid">
+  @foreach (var metric in metrics)
+  {
+    <div class="metric-card">
+      <div class="metric-label">@metric.Label</div>
+      <div class="metric-value">@metric.Value</div>
+      <div class="metric-note">@metric.Note</div>
+    </div>
+  }
+</div>
+
+<div class="dashboard-grid mt-4">
+  <section class="surface-card">
+    <div class="section-heading">
+      <div><h2>Recent episodes</h2><p>Editorial workspaces prepared for AI-assisted planning.</p></div>
+      <a href="/episodes">View all</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table workspace-table">
+        <thead><tr><th>Episode</th><th>Status</th><th>Content state</th><th>Updated</th></tr></thead>
+        <tbody>
+          @foreach (var episode in episodes)
+          {
+            <tr>
+              <td><a class="table-link" href="/episodes/@episode.Id">@episode.Title</a><small>@episode.Audience</small></td>
+              <td><span class="status-badge @episode.StatusClass">@episode.Status</span></td>
+              <td>@episode.ContentState</td>
+              <td>@episode.Updated</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <aside class="surface-card">
+    <div class="section-heading"><div><h2>Quick actions</h2><p>Start from a prepared product surface.</p></div></div>
+    <div class="quick-actions">
+      <a href="/episodes/create"><span>01</span><div><strong>Create an episode</strong><small>Define the brief and content objective.</small></div></a>
+      <a href="/media/upload"><span>02</span><div><strong>Upload source media</strong><small>Prepare audio, images, and documents.</small></div></a>
+      <a href="/knowledge/create"><span>03</span><div><strong>Add knowledge source</strong><small>Stage enterprise evidence for RAG.</small></div></a>
+      <a href="/approvals"><span>04</span><div><strong>Review approvals</strong><small>Inspect consequential workflow actions.</small></div></a>
+    </div>
+  </aside>
+</div>
+
+<section class="surface-card mt-4">
+  <div class="section-heading">
+    <div><h2>Recent processing activity</h2><p>Illustrative states for the future asynchronous AI job pipeline.</p></div>
+    <a href="/jobs">Open jobs</a>
+  </div>
+  <div class="activity-list">
+    <div><span class="activity-mark running"></span><div><strong>Transcript preparation</strong><small>Episode 104 · Awaiting speech client implementation</small></div><span>Queued</span></div>
+    <div><span class="activity-mark complete"></span><div><strong>Brand policy import</strong><small>Knowledge source structure prepared</small></div><span>Shell ready</span></div>
+    <div><span class="activity-mark pending"></span><div><strong>Editorial workflow</strong><small>Agent execution is introduced in Section 08</small></div><span>Not configured</span></div>
+  </div>
+</section>
+
+@code {
+  private readonly Metric[] metrics =
+  [
+    new("Episodes", "3", "2 drafts · 1 in review"),
+    new("Media assets", "8", "Audio, image, and document shells"),
+    new("Queued jobs", "2", "Execution pipeline not connected"),
+    new("Pending approvals", "1", "Human review surface available")
+  ];
+
+  private readonly EpisodeRow[] episodes =
+  [
+    new("104", "Responsible AI in Production", "Engineering leaders", "Draft", "badge-neutral", "Brief ready", "12 minutes ago"),
+    new("103", "Designing Reliable RAG", ".NET developers", "In review", "badge-warning", "Evidence staged", "Yesterday"),
+    new("102", "Multimodal Content Workflows", "Content teams", "Planned", "badge-info", "Media pending", "Jul 14")
+  ];
+
+  private sealed record Metric(string Label, string Value, string Note);
+  private sealed record EpisodeRow(string Id, string Title, string Audience, string Status, string StatusClass, string ContentState, string Updated);
+}

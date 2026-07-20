@@ -1,0 +1,97 @@
+@page "/episodes/new"
+@page "/episodes/create"
+@attribute [Authorize]
+
+<PageTitle>Create episode</PageTitle>
+
+<div class="breadcrumb-line"><a href="/episodes">Episodes</a><span>/</span><span>Create episode</span></div>
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Editorial brief</div>
+    <h1>Create an episode</h1>
+    <p>Define the business and editorial context that later AI services will use to generate a structured episode plan.</p>
+  </div>
+</div>
+
+<div class="form-layout">
+  <section class="surface-card">
+    <EditForm Model="model" OnValidSubmit="PreviewSubmission" FormName="create-episode-shell">
+      <DataAnnotationsValidator />
+      <ValidationSummary class="text-danger" />
+
+      <div class="form-section">
+        <div class="form-section-title"><span>1</span><div><h2>Episode identity</h2><p>Give the workspace a clear editorial purpose.</p></div></div>
+        <div class="mb-3">
+          <label class="form-label">Episode title</label>
+          <InputText class="form-control" @bind-Value="model.Title" placeholder="Example: Responsible AI in Production" />
+          <ValidationMessage For="() => model.Title" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Description</label>
+          <InputTextArea class="form-control" rows="4" @bind-Value="model.Description" placeholder="Summarize the subject, intended value, and boundaries." />
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><span>2</span><div><h2>Audience and outcome</h2><p>These fields will become prompt inputs during the structured planning lessons.</p></div></div>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Target audience</label><InputText class="form-control" @bind-Value="model.TargetAudience" placeholder="Enterprise .NET developers" /></div>
+          <div class="col-md-6"><label class="form-label">Preferred tone</label><InputSelect class="form-select" @bind-Value="model.Tone"><option>Professional and direct</option><option>Conversational</option><option>Executive briefing</option><option>Technical deep dive</option></InputSelect></div>
+          <div class="col-12"><label class="form-label">Content objective</label><InputTextArea class="form-control" rows="3" @bind-Value="model.Objective" placeholder="What should the audience understand or be able to do?" /></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><span>3</span><div><h2>Publishing preferences</h2><p>Capture scheduling and localization information without implementing persistence.</p></div></div>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Content language</label><InputSelect class="form-select" @bind-Value="model.Language"><option>English (United States)</option><option>English (United Kingdom)</option><option>Spanish</option><option>French</option></InputSelect></div>
+          <div class="col-md-6"><label class="form-label">Planned publication date</label><InputDate class="form-control" @bind-Value="model.PublishDate" /></div>
+        </div>
+      </div>
+
+      @if (showNotice)
+      {
+        <div class="alert alert-info">The form is valid. Saving is intentionally disabled on this UI-scaffold branch; persistence is connected in a later implementation checkpoint.</div>
+      }
+
+      <div class="form-actions">
+        <a class="btn btn-outline-secondary" href="/episodes">Cancel</a>
+        <button class="btn btn-outline-primary" type="button" @onclick="PreviewSubmission">Save draft</button>
+        <button class="btn btn-primary" type="submit">Save and open workspace</button>
+      </div>
+    </EditForm>
+  </section>
+
+  <aside class="surface-card guidance-card">
+    <div class="guidance-icon">AI</div>
+    <h2>Future AI planning seam</h2>
+    <p>The episode brief will later be passed to an application-owned planning service using:</p>
+    <ul>
+      <li><code>IChatClient</code></li>
+      <li>Versioned prompt templates</li>
+      <li>JSON Schema structured output</li>
+      <li>Domain validation and bounded repair</li>
+    </ul>
+    <div class="mini-status"><span class="status-dot"></span><div><strong>Generate Plan</strong><small>Available after the Section 04 and 05 implementations.</small></div></div>
+  </aside>
+</div>
+
+@code {
+  private readonly EpisodeFormModel model = new();
+  private bool showNotice;
+
+  private void PreviewSubmission() => showNotice = true;
+
+  private sealed class EpisodeFormModel
+  {
+    [System.ComponentModel.DataAnnotations.Required]
+    [System.ComponentModel.DataAnnotations.StringLength(160, MinimumLength = 5)]
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string TargetAudience { get; set; } = string.Empty;
+    public string Objective { get; set; } = string.Empty;
+    public string Tone { get; set; } = "Professional and direct";
+    public string Language { get; set; } = "English (United States)";
+    public DateTime? PublishDate { get; set; }
+  }
+}

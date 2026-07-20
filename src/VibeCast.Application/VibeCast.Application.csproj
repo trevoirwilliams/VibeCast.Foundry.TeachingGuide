@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\VibeCast.Domain\VibeCast.Domain.csproj" />
+  </ItemGroup>
+</Project>

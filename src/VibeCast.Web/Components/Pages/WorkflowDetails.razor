@@ -1,0 +1,59 @@
+@page "/workflows/{Id}"
+@attribute [Authorize]
+
+<PageTitle>Workflow details</PageTitle>
+
+<div class="breadcrumb-line"><a href="/workflows">Editorial workflows</a><span>/</span><span>Episode editorial production</span></div>
+<div class="page-heading">
+  <div><div class="eyebrow">Workflow @Id</div><h1>Episode editorial production</h1><p>Prepared structure for orchestration state, role handoffs, tool activity, approval requests, and durable resumption.</p></div>
+  <div class="page-actions"><span class="status-badge badge-warning">Awaiting approval</span><button class="btn btn-outline-secondary" disabled>Pause</button><button class="btn btn-primary" disabled>Resume workflow</button></div>
+</div>
+
+<section class="surface-card">
+  <div class="workflow-strip detailed">
+    <div class="complete"><span>1</span><strong>Brief</strong><small>Completed</small></div><i></i>
+    <div class="complete"><span>2</span><strong>Research</strong><small>Completed</small></div><i></i>
+    <div class="complete"><span>3</span><strong>Draft</strong><small>Completed</small></div><i></i>
+    <div class="current"><span>4</span><strong>Compliance</strong><small>Approval required</small></div><i></i>
+    <div><span>5</span><strong>Editorial approval</strong><small>Waiting</small></div><i></i>
+    <div><span>6</span><strong>Publish</strong><small>Not started</small></div>
+  </div>
+</section>
+
+<div class="dashboard-grid mt-4">
+  <section class="surface-card">
+    <div class="section-heading"><div><h2>Workflow timeline</h2><p>Illustrative events that later come from Agent Framework and durable state.</p></div></div>
+    <div class="timeline-list">
+      <div><span class="timeline-dot complete"></span><div><strong>Compliance review requested</strong><p>A consequential content claim requires human confirmation before publication.</p><small>8 minutes ago · Compliance role</small></div></div>
+      <div><span class="timeline-dot complete"></span><div><strong>Draft assembled</strong><p>Structured handoff contains the outline, evidence references, and unresolved risks.</p><small>14 minutes ago · Writer role</small></div></div>
+      <div><span class="timeline-dot complete"></span><div><strong>Evidence package prepared</strong><p>Four supporting sources were selected for the draft context.</p><small>21 minutes ago · Research role</small></div></div>
+      <div><span class="timeline-dot"></span><div><strong>Workflow created</strong><p>Episode brief accepted as the initial workflow input.</p><small>28 minutes ago · Application</small></div></div>
+    </div>
+  </section>
+
+  <aside class="surface-card">
+    <div class="section-heading"><div><h2>Current checkpoint</h2><p>State that must be persisted before waiting.</p></div></div>
+    <dl class="detail-grid single">
+      <dt>Executor</dt><dd>Compliance review</dd>
+      <dt>Request port</dt><dd>EditorialApproval</dd>
+      <dt>Checkpoint</dt><dd>checkpoint-004</dd>
+      <dt>Timeout</dt><dd>24 hours</dd>
+      <dt>Resume token</dt><dd>Not generated</dd>
+    </dl>
+    <a class="btn btn-outline-primary w-100" href="/approvals">Review pending approval</a>
+  </aside>
+</div>
+
+<section class="surface-card mt-4">
+  <div class="section-heading"><div><h2>Specialist roles and approved capabilities</h2><p>Each role receives only the context and tools needed for its stage.</p></div></div>
+  <div class="role-grid">
+    <div><span>R</span><strong>Research</strong><small>Permission-aware knowledge retrieval</small></div>
+    <div><span>W</span><strong>Writer</strong><small>Structured draft generation</small></div>
+    <div><span>C</span><strong>Compliance</strong><small>Policy comparison and escalation</small></div>
+    <div><span>E</span><strong>Editor</strong><small>Human approval and publication decision</small></div>
+  </div>
+</section>
+
+@code {
+  [Parameter] public string Id { get; set; } = string.Empty;
+}
