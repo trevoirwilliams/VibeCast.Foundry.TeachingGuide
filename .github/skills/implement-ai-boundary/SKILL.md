@@ -24,7 +24,8 @@ Required safeguards:
 - Never expose provider response types to Razor components.
 - Never accept model output as valid domain state without validation.
 - Propagate `CancellationToken`.
-- Bound output and retries.
+- Cap output tokens per use case (for example, default to 2048 unless a documented requirement says otherwise) and limit retries to a maximum of 3 with exponential backoff.
+- When retries are exhausted or a non-retryable provider error occurs, throw a typed application exception (not a provider exception) and surface a safe error message to the caller.
 - Do not log prompt or response bodies by default.
 - Do not place credentials in source code or rendered settings.
 - Do not implement tools or autonomous actions unless the task explicitly requires

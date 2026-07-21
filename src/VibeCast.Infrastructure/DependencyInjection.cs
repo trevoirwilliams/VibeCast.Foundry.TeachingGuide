@@ -1,11 +1,10 @@
 using System.ClientModel;
+using Azure.AI.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using OpenAI;
-using OpenAI.Chat;
 using VibeCast.Application.Abstractions.Jobs;
 using VibeCast.Application.Abstractions.Storage;
 using VibeCast.Application.Episodes;
@@ -37,7 +36,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(BackgroundJobsOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
-        
+
         services.AddOptions<FoundryOptions>()
             .Bind(configuration.GetSection(FoundryOptions.SectionName))
             .ValidateDataAnnotations()
@@ -50,29 +49,31 @@ public static class DependencyInjection
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
 
+        services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
+
+            return new AzureOpenAIClient(
+                new Uri(
+                    options.ProjectEndpoint,
+                    UriKind.Absolute),
+                new ApiKeyCredential(options.ApiKey ?? string.Empty));
+        });
+
         services.AddSingleton<IChatClient>(serviceProvider =>
         {
             FoundryOptions options = serviceProvider
                 .GetRequiredService<IOptions<FoundryOptions>>()
                 .Value;
 
-            if (string.IsNullOrWhiteSpace(options.ApiKey))
-            {
-                throw new InvalidOperationException(
-                    "Foundry:ApiKey is required for chat client registration.");
-            }
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
-            OpenAIClientOptions clientOptions = new()
-            {
-                Endpoint = new Uri(options.ProjectEndpoint)
-            };
-
-            ChatClient chatClient = new(
-                options.ChatModelDeployment,
-                new ApiKeyCredential(options.ApiKey),
-                clientOptions);
-
-            return chatClient.AsIChatClient();
+            return azureOpenAIClient
+                .GetChatClient(options.ChatModelDeployment)
+                .AsIChatClient();
         });
 
         services.AddScoped<

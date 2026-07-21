@@ -284,3 +284,16 @@ code { color: var(--vc-teal-dark); background: #edf3f4; padding: .1rem .3rem; bo
   .page-actions { width: 100%; }
   .page-actions .btn { flex: 1; }
 }
+
+.generated-concept {
+    padding: 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.generated-concept-content {
+    margin-top: 0.5rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
