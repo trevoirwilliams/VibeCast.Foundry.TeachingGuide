@@ -3,6 +3,8 @@
 @attribute [Authorize]
 @implements IDisposable
 @using VibeCast.Application.Episodes
+@using System.Diagnostics
+@using System.Text
 @inject IEpisodeConceptGenerator EpisodeConceptGenerator
 @inject Microsoft.Extensions.Logging.ILogger<EpisodeCreate> Logger
 
@@ -202,6 +204,32 @@
             }
         </button>
 
+        <button
+            class="btn btn-primary w-100"
+            type="button"
+            disabled="@isGenerating"
+            @onclick="StreamEpisodeConceptAsync">
+
+            @if (isGenerating)
+            {
+                <span>Generating concept...</span>
+            }
+            else
+            {
+                <span>Stream episode concept</span>
+            }
+        </button>
+
+        @if (isGenerating)
+        {
+            <button
+                class="btn btn-outline-secondary"
+                type="button"
+                @onclick="CancelGeneration">
+                Stop generation
+            </button>
+        }
+
         @if (!string.IsNullOrWhiteSpace(generationError))
         {
             <div
@@ -211,12 +239,36 @@
             </div>
         }
 
-        @if (!string.IsNullOrWhiteSpace(generatedConcept))
+        @if (isGenerating || !string.IsNullOrWhiteSpace(generatedConcept))
         {
-            <div class="generated-concept mt-3">
-                <div class="eyebrow">Generated concept</div>
+            <div
+                class="generated-concept mt-3"
+                aria-live="polite"
+                aria-atomic="false">
+
+                <div class="generated-concept-heading">
+                    <div class="eyebrow">Generated concept</div>
+
+                    @if (isGenerating)
+                    {
+                        <span
+                            class="streaming-status"
+                            role="status">
+                            Receiving response
+                        </span>
+                    }
+                </div>
+
                 <div class="generated-concept-content">
                     @generatedConcept
+
+                    @if (isGenerating)
+                    {
+                        <span
+                            class="streaming-cursor"
+                            aria-hidden="true">
+                        </span>
+                    }
                 </div>
             </div>
         }
@@ -243,6 +295,12 @@
     private bool isGenerating;
     private string? generatedConcept;
     private string? generationError;
+
+    private static readonly TimeSpan GenerationTimeout =
+    TimeSpan.FromSeconds(90);
+
+  private static readonly TimeSpan StreamingRenderInterval =
+      TimeSpan.FromMilliseconds(75);
 
     protected override void OnInitialized()
     {
@@ -330,6 +388,127 @@
         }
     }
 
+    private async Task StreamEpisodeConceptAsync()
+    {
+        if (isGenerating)
+        {
+            return;
+        }
+
+        generationError = null;
+        generatedConcept = string.Empty;
+
+        if (!editContext.Validate())
+        {
+            generationError =
+                "Complete the required editorial brief fields " +
+                "before generating a concept.";
+
+            return;
+        }
+
+        generationCancellation?.Cancel();
+        generationCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation =
+            new(GenerationTimeout);
+
+        generationCancellation = currentCancellation;
+        isGenerating = true;
+
+        StringBuilder conceptBuilder = new();
+        long lastRenderTimestamp = Stopwatch.GetTimestamp();
+
+        try
+        {
+            GenerateEpisodeConceptRequest request = new(
+                Title: model.Title,
+                Description: model.Description,
+                TargetAudience: model.TargetAudience,
+                Objective: model.Objective,
+                Tone: model.Tone,
+                Language: model.Language);
+
+            await foreach (
+                string chunk
+                in EpisodeConceptGenerator
+                    .StreamAsync(
+                        request,
+                        currentCancellation.Token)
+                    .WithCancellation(
+                        currentCancellation.Token))
+            {
+                conceptBuilder.Append(chunk);
+
+                TimeSpan elapsedSinceRender =
+                    Stopwatch.GetElapsedTime(
+                        lastRenderTimestamp);
+
+                if (elapsedSinceRender < StreamingRenderInterval)
+                {
+                    continue;
+                }
+
+                generatedConcept = conceptBuilder.ToString();
+
+                await InvokeAsync(StateHasChanged);
+
+                lastRenderTimestamp =
+                    Stopwatch.GetTimestamp();
+            }
+
+            generatedConcept = conceptBuilder.ToString();
+
+            if (string.IsNullOrWhiteSpace(generatedConcept))
+            {
+                throw new InvalidOperationException(
+                    "The episode concept stream contained no text.");
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            generatedConcept = conceptBuilder.ToString();
+
+            generationError =
+                generatedConcept.Length > 0
+                    ? "Generation stopped. The partial concept is shown."
+                    : "Generation was cancelled before content was received.";
+        }
+        catch (Exception exception)
+        {
+            generatedConcept = conceptBuilder.ToString();
+
+            Logger.LogError(
+                exception,
+                "Episode concept streaming failed.");
+
+            generationError =
+                generatedConcept.Length > 0
+                    ? "The stream ended unexpectedly. Partial content is shown."
+                    : "VibeCast could not stream the episode concept. " +
+                      "Verify the Foundry configuration and try again.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    generationCancellation,
+                    currentCancellation))
+            {
+                generationCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+            isGenerating = false;
+        }
+    }
+
+    private void CancelGeneration()
+    {
+        generationCancellation?.Cancel();
+    }
     public void Dispose()
     {
         CancellationTokenSource? cancellation =

@@ -40,6 +40,75 @@ public sealed class FoundryEpisodeConceptGenerator(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        
+        (ChatMessage[] messages, ChatOptions chatOptions) = CreateModelRequest(request);
+
+        ChatResponse response = await chatClient.GetResponseAsync(
+            messages,
+            chatOptions,
+            cancellationToken);
+
+        string content = response.Text?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new InvalidOperationException(
+                "Microsoft Foundry returned an empty episode concept.");
+        }
+
+        logger.LogInformation(
+            "Generated episode concept for title {Title}: {Content}",
+            request.Title,
+            content);
+
+        return new EpisodeConceptResult(content);
+    }
+
+    public async IAsyncEnumerable<string> StreamAsync(GenerateEpisodeConceptRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        
+        (ChatMessage[] messages, ChatOptions chatOptions) = CreateModelRequest(request);
+
+        int chunkCount = 0;
+        int characterCount = 0;
+
+        await foreach (
+            ChatResponseUpdate update
+            in chatClient.GetStreamingResponseAsync(
+                messages,
+                chatOptions,
+                cancellationToken))
+        {
+            string text = update.Text ?? string.Empty;
+
+            if (text.Length == 0)
+            {
+                continue;
+            }
+
+            chunkCount++;
+            characterCount += text.Length;
+
+            yield return text;
+        }
+
+        if (characterCount == 0)
+        {
+            throw new InvalidOperationException(
+                "Microsoft Foundry returned an empty episode concept stream.");
+        }
+
+        logger.LogInformation(
+            "Completed a VibeCast episode concept stream with " +
+            "{ChunkCount} chunks and {CharacterCount} characters.",
+            chunkCount,
+            characterCount);
+
+    }
+
+    private (ChatMessage[] messages, ChatOptions chatOptions) CreateModelRequest(GenerateEpisodeConceptRequest request)
+    {
         string editorialBrief = JsonSerializer.Serialize(
             new
             {
@@ -68,24 +137,8 @@ public sealed class FoundryEpisodeConceptGenerator(
             MaxOutputTokens = 2000
         };
 
-        ChatResponse response = await chatClient.GetResponseAsync(
-            messages,
-            chatOptions,
-            cancellationToken);
-
-        string content = response.Text?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            throw new InvalidOperationException(
-                "Microsoft Foundry returned an empty episode concept.");
-        }
-
-        logger.LogInformation(
-            "Generated episode concept for title {Title}: {Content}",
-            request.Title,
-            content);
-
-        return new EpisodeConceptResult(content);
+        return (messages, chatOptions);
     }
+
+
 }
