@@ -33,8 +33,7 @@ and required regression test.
 Do not edit files.
 
 ## Prompt 3 - VibeCast Test Specialist
-Using the approved architecture and security findings, add the smallest
-deterministic MSTest coverage necessary to close Section 04.
+Using the approved architecture and security findings, add the smallest deterministic MSTest coverage necessary .
 
 Use a hand-written fake IChatClient. Do not call Microsoft Foundry or read
 User Secrets.
@@ -51,8 +50,7 @@ Cover:
 Run the targeted tests after implementation.
 
 ## Prompt 4 - VibeCast AI Implementer
-Apply only the required findings from the architecture, security, and
-testing reviews.
+Apply only the required findings from the architecture, security, and testing reviews.
 
 Keep the public application contract unchanged.
 
@@ -65,4 +63,5 @@ Required priorities:
 - avoid introducing later-section features.
 
 Run restore, Release build, targeted tests, and the full solution tests.
+
 Report every changed file.

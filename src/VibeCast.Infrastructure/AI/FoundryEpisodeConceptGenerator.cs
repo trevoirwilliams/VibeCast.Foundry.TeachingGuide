@@ -57,8 +57,7 @@ public sealed class FoundryEpisodeConceptGenerator(
         }
 
         logger.LogInformation(
-            "Generated episode concept for title {Title}",
-            request.Title);
+            "Generated episode concept successfully.");
 
         return new EpisodeConceptResult(content);
     }
