@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace VibeCast.IntegrationTests;
@@ -9,9 +11,20 @@ public sealed class HealthEndpointTests
     [TestMethod]
     public async Task HealthEndpoint_ReturnsSuccess()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Foundry:ProjectEndpoint"] = "https://example.openai.azure.com/",
+                        ["Foundry:ChatModelDeployment"] = "test-deployment"
+                    });
+                });
+            });
 
+        using var client = factory.CreateClient();
         using var response = await client.GetAsync("/health");
 
         response.EnsureSuccessStatusCode();
