@@ -6,23 +6,60 @@ public sealed class Episode : Entity
 {
     private Episode() { }
 
-    private Episode(string title, string? description, string ownerId)
+    private Episode(
+        string title,
+        string? description,
+        string targetAudience,
+        string objective,
+        string tone,
+        string language,
+        DateOnly? plannedPublishDate,
+        string ownerId)
     {
         SetTitle(title);
         Description = description?.Trim();
         OwnerId = string.IsNullOrWhiteSpace(ownerId)
             ? throw new ArgumentException("An owner is required.", nameof(ownerId))
             : ownerId;
+        TargetAudience = targetAudience.Trim();
+        Objective = objective.Trim();
+        Tone = tone.Trim();
+        Language = language.Trim();
+        PlannedPublishDate = plannedPublishDate;
     }
 
     public string Title { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public string OwnerId { get; private set; } = string.Empty;
+    public string TargetAudience { get; private set; } = string.Empty;
+    public string Objective { get; private set; } = string.Empty;
+    public string Tone { get; private set; } = string.Empty;
+    public string Language { get; private set; } = string.Empty;
+    public DateOnly? PlannedPublishDate { get; private set; }
+
     public EpisodeStatus Status { get; private set; } = EpisodeStatus.Draft;
     public DateTimeOffset? ScheduledForUtc { get; private set; }
 
-    public static Episode Create(string title, string? description, string ownerId) =>
-        new(title, description, ownerId);
+    public static Episode Create(
+        string title,
+        string? description,
+        string targetAudience,
+        string objective,
+        string tone,
+        string language,
+        DateOnly? plannedPublishDate,
+        string ownerId)
+    {
+        return new Episode(
+            title,
+            description,
+            targetAudience,
+            objective,
+            tone,
+            language,
+            plannedPublishDate,
+            ownerId);
+    }
 
     public void Rename(string title)
     {

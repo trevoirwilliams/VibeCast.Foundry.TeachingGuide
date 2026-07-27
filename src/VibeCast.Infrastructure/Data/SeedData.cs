@@ -44,8 +44,24 @@ public static class SeedData
         if (!await db.Episodes.AnyAsync(cancellationToken))
         {
             db.Episodes.AddRange(
-                Episode.Create("Modern .NET AI Architecture", "Seed episode used by the Section 04 starter branch.", user.Id),
-                Episode.Create("Responsible Multimodal Workflows", "A second seeded record for the dashboard and list screens.", user.Id));
+                Episode.Create(
+                    title: "Modern .NET AI Architecture",
+                    description: "Seed episode used by the Section 04 starter branch.",
+                    targetAudience: "Developers",
+                    objective: "Seed data",
+                    tone: "Informative",
+                    language: "English",
+                    plannedPublishDate: null,
+                    ownerId: user.Id),
+                Episode.Create(
+                    title: "Responsible Multimodal Workflows",
+                    description: "A second seeded record for the dashboard and list screens.",
+                    targetAudience: "Developers",
+                    objective: "Seed data",
+                    tone: "Informative",
+                    language: "English",
+                    plannedPublishDate: null,
+                    ownerId: user.Id));
         }
 
         if (!await db.ProcessingJobs.AnyAsync(cancellationToken))

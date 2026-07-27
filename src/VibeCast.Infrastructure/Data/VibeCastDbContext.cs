@@ -26,6 +26,25 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.Title).HasMaxLength(160).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(2_000);
             entity.Property(x => x.OwnerId).HasMaxLength(450).IsRequired();
+
+            entity.Property(episode => episode.TargetAudience)
+            .HasMaxLength(160)
+            .IsRequired();
+
+            entity.Property(episode => episode.Objective)
+                .HasMaxLength(600)
+                .IsRequired();
+
+            entity.Property(episode => episode.Tone)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(episode => episode.Language)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(episode => episode.PlannedPublishDate);
+
             entity.HasIndex(x => new { x.OwnerId, x.CreatedAtUtc });
         });
 

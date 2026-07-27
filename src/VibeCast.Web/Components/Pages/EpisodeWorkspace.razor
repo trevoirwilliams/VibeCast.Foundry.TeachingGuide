@@ -1,83 +1,444 @@
 @page "/episodes/{Id}"
 @attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Globalization
+@using System.Security.Claims
+@using VibeCast.Application.Episodes
+@using VibeCast.Domain.Episodes
+@inject IEpisodeService EpisodeService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-<PageTitle>Episode workspace</PageTitle>
+<PageTitle>
+    @(episode is null ? "Episode workspace" : episode.Title)
+</PageTitle>
 
-<div class="breadcrumb-line"><a href="/episodes">Episodes</a><span>/</span><span>Responsible AI in Production</span></div>
-<div class="page-heading episode-heading">
-  <div>
-    <div class="eyebrow">Episode @Id</div>
-    <h1>Responsible AI in Production</h1>
-    <p>Central workspace for the brief, AI plan, transcript, media, enterprise evidence, workflow state, and evaluation results.</p>
-  </div>
-  <div class="page-actions">
-    <span class="status-badge badge-neutral">Draft</span>
-    <button class="btn btn-outline-secondary" disabled>Save changes</button>
-    <button class="btn btn-primary" disabled>Generate plan</button>
-  </div>
-</div>
-
-<div class="workspace-tabs" role="tablist">
-  @foreach (var tab in tabs)
-  {
-    <button class="@(selectedTab == tab ? "active" : null)" @onclick="() => selectedTab = tab">@tab</button>
-  }
-</div>
-
-<section class="surface-card workspace-panel">
-  @if (selectedTab == "Overview")
-  {
-    <div class="two-column-detail">
-      <div>
-        <div class="section-heading"><div><h2>Editorial brief</h2><p>The application-owned inputs that will constrain generation.</p></div><button class="btn btn-sm btn-outline-secondary" disabled>Edit brief</button></div>
-        <dl class="detail-grid">
-          <dt>Target audience</dt><dd>Engineering leaders and enterprise .NET developers</dd>
-          <dt>Objective</dt><dd>Explain how evaluation, security controls, and operational governance make AI systems production-ready.</dd>
-          <dt>Tone</dt><dd>Professional and technically authoritative</dd>
-          <dt>Language</dt><dd>English (United States)</dd>
-          <dt>Publication</dt><dd>Not scheduled</dd>
-        </dl>
-      </div>
-      <aside class="readiness-panel">
-        <div class="readiness-icon">AI</div>
-        <h3>Planning service unavailable</h3>
-        <p>The interface is ready for an <code>IEpisodePlanningService</code>, but this branch intentionally contains no model provider or fake AI response.</p>
-        <a href="/settings">Review integration settings</a>
-      </aside>
+@if (isLoading)
+{
+    <section class="surface-card">
+        <div class="empty-state compact">
+            <div class="empty-icon">…</div>
+            <div>
+                <strong>Loading episode workspace</strong>
+                <p>Retrieving the persisted editorial brief.</p>
+            </div>
+        </div>
+    </section>
+}
+else if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <section class="surface-card">
+        <div class="alert alert-danger mb-0" role="alert">
+            @loadError
+        </div>
+    </section>
+}
+else if (episode is not null)
+{
+    <div class="breadcrumb-line">
+        <a href="/episodes">Episodes</a>
+        <span>/</span>
+        <span>@episode.Title</span>
     </div>
-  }
-  else if (selectedTab == "AI Planner")
-  {
-    <div class="empty-state large"><div class="empty-icon">✦</div><div><h2>Generate a structured episode plan</h2><p>This surface will display segments, key messages, suggested evidence, media requirements, and editorial risks after the <code>IChatClient</code> pipeline is implemented.</p><button class="btn btn-primary" disabled>Generate plan</button><small>Requires Microsoft Foundry connection</small></div></div>
-  }
-  else if (selectedTab == "Transcript")
-  {
-    <div class="split-panel"><div><h2>Transcript workspace</h2><p>Review source audio, speaker segments, timestamps, and corrected text.</p><div class="empty-state compact"><div class="empty-icon">Aa</div><div><strong>No transcript yet</strong><p>Upload audio and implement speech-to-text in the multimodal section.</p></div></div></div><aside class="panel-muted"><h3>Transcript controls</h3><label class="form-label">Language</label><select class="form-select" disabled><option>English (United States)</option></select><label class="form-label mt-3">Speaker identification</label><div class="form-check"><input class="form-check-input" type="checkbox" disabled /><label class="form-check-label">Detect speakers</label></div></aside></div>
-  }
-  else if (selectedTab == "Media")
-  {
-    <div class="section-heading"><div><h2>Episode media</h2><p>Associate audio, images, documents, and generated promotional assets.</p></div><a class="btn btn-sm btn-outline-primary" href="/media/upload">Add media</a></div>
-    <div class="media-card-grid"><div class="media-tile placeholder-tile"><div>＋</div><strong>Add source media</strong><small>Files remain unprocessed on this branch.</small></div></div>
-  }
-  else if (selectedTab == "Knowledge")
-  {
-    <div class="section-heading"><div><h2>Grounding evidence</h2><p>Choose permission-aware sources that will support generated claims.</p></div><a class="btn btn-sm btn-outline-primary" href="/knowledge">Manage sources</a></div>
-    <div class="empty-state compact"><div class="empty-icon">◇</div><div><strong>No knowledge source attached</strong><p>RAG ingestion, retrieval, citations, and insufficient-evidence behavior are implemented in Section 07.</p></div></div>
-  }
-  else if (selectedTab == "Workflow")
-  {
-    <h2>Editorial workflow</h2><p>Track deterministic stages, specialist agents, approvals, and resumable execution.</p>
-    <div class="workflow-strip"><div class="complete"><span>1</span><strong>Brief</strong><small>Ready</small></div><i></i><div><span>2</span><strong>Research</strong><small>Not started</small></div><i></i><div><span>3</span><strong>Draft</strong><small>Not started</small></div><i></i><div><span>4</span><strong>Approval</strong><small>Not started</small></div></div>
-  }
-  else
-  {
-    <div class="section-heading"><div><h2>Evaluation evidence</h2><p>Quality, groundedness, safety, and regression results for this episode.</p></div><a class="btn btn-sm btn-outline-primary" href="/evaluations">Open evaluations</a></div>
-    <div class="metric-grid compact"><div class="metric-card"><div class="metric-label">Quality</div><div class="metric-value">—</div><div class="metric-note">No evaluation run</div></div><div class="metric-card"><div class="metric-label">Groundedness</div><div class="metric-value">—</div><div class="metric-note">No evidence generated</div></div><div class="metric-card"><div class="metric-label">Safety</div><div class="metric-value">—</div><div class="metric-note">Guardrails not configured</div></div></div>
-  }
-</section>
+
+    <div class="page-heading episode-heading">
+        <div>
+            <div class="eyebrow">
+                Episode @episode.Id
+            </div>
+
+            <h1>@episode.Title</h1>
+
+            <p>
+                @(string.IsNullOrWhiteSpace(episode.Description)
+                    ? "No episode description has been provided."
+                    : episode.Description)
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <span class="status-badge @GetStatusBadgeClass(episode.Status)">
+                @GetStatusLabel(episode.Status)
+            </span>
+
+            <button class="btn btn-outline-secondary"
+                    disabled>
+                Save changes
+            </button>
+
+            <button class="btn btn-primary"
+                    disabled>
+                Generate plan
+            </button>
+        </div>
+    </div>
+
+    <div class="workspace-tabs" role="tablist">
+        @foreach (string tab in tabs)
+        {
+            <button class="@(selectedTab == tab ? "active" : null)"
+                    @onclick="() => selectedTab = tab">
+                @tab
+            </button>
+        }
+    </div>
+
+    <section class="surface-card workspace-panel">
+        @if (selectedTab == "Overview")
+        {
+            <div class="two-column-detail">
+                <div>
+                    <div class="section-heading">
+                        <div>
+                            <h2>Editorial brief</h2>
+                            <p>
+                                Persisted application inputs that will
+                                constrain episode planning.
+                            </p>
+                        </div>
+
+                        <button class="btn btn-sm btn-outline-secondary"
+                                disabled>
+                            Edit brief
+                        </button>
+                    </div>
+
+                    <dl class="detail-grid">
+                        <dt>Target audience</dt>
+                        <dd>@episode.TargetAudience</dd>
+
+                        <dt>Objective</dt>
+                        <dd>@episode.Objective</dd>
+
+                        <dt>Tone</dt>
+                        <dd>@episode.Tone</dd>
+
+                        <dt>Language</dt>
+                        <dd>@episode.Language</dd>
+
+                        <dt>Publication</dt>
+                        <dd>
+                            @FormatPublicationDate(
+                                episode.PlannedPublishDate)
+                        </dd>
+                    </dl>
+                </div>
+
+                <aside class="readiness-panel">
+                    <div class="readiness-icon">AI</div>
+                    <h3>Editorial brief ready</h3>
+                    <p>
+                        The episode context is persisted and ready
+                        for the structured AI Planner.
+                    </p>
+                    <small>
+                        Planning is implemented in the next lesson.
+                    </small>
+                </aside>
+            </div>
+        }
+        else if (selectedTab == "AI Planner")
+        {
+            <div class="empty-state large">
+                <div class="empty-icon">✦</div>
+                <div>
+                    <h2>Generate a structured episode plan</h2>
+                    <p>
+                        This surface will display segments, key
+                        messages, evidence requirements, media
+                        requirements, and editorial risks.
+                    </p>
+                    <button class="btn btn-primary" disabled>
+                        Generate plan
+                    </button>
+                    <small>
+                        Structured planning is the next milestone.
+                    </small>
+                </div>
+            </div>
+        }
+        else if (selectedTab == "Transcript")
+        {
+            <div class="split-panel">
+                <div>
+                    <h2>Transcript workspace</h2>
+                    <p>
+                        Review source audio, speaker segments,
+                        timestamps, and corrected text.
+                    </p>
+
+                    <div class="empty-state compact">
+                        <div class="empty-icon">Aa</div>
+                        <div>
+                            <strong>No transcript yet</strong>
+                            <p>
+                                Speech processing is implemented in
+                                the multimodal section.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="panel-muted">
+                    <h3>Transcript controls</h3>
+
+                    <label class="form-label">Language</label>
+                    <select class="form-select" disabled>
+                        <option>@episode.Language</option>
+                    </select>
+
+                    <label class="form-label mt-3">
+                        Speaker identification
+                    </label>
+
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               disabled />
+
+                        <label class="form-check-label">
+                            Detect speakers
+                        </label>
+                    </div>
+                </aside>
+            </div>
+        }
+        else if (selectedTab == "Media")
+        {
+            <div class="section-heading">
+                <div>
+                    <h2>Episode media</h2>
+                    <p>
+                        Associate audio, images, documents, and
+                        generated promotional assets.
+                    </p>
+                </div>
+
+                <a class="btn btn-sm btn-outline-primary"
+                   href="/media/upload">
+                    Add media
+                </a>
+            </div>
+
+            <div class="media-card-grid">
+                <div class="media-tile placeholder-tile">
+                    <div>＋</div>
+                    <strong>Add source media</strong>
+                    <small>Files remain unprocessed.</small>
+                </div>
+            </div>
+        }
+        else if (selectedTab == "Knowledge")
+        {
+            <div class="section-heading">
+                <div>
+                    <h2>Grounding evidence</h2>
+                    <p>
+                        Choose permission-aware sources that support
+                        generated claims.
+                    </p>
+                </div>
+
+                <a class="btn btn-sm btn-outline-primary"
+                   href="/knowledge">
+                    Manage sources
+                </a>
+            </div>
+
+            <div class="empty-state compact">
+                <div class="empty-icon">◇</div>
+                <div>
+                    <strong>No knowledge source attached</strong>
+                    <p>
+                        RAG ingestion and citations are implemented
+                        in Section 07.
+                    </p>
+                </div>
+            </div>
+        }
+        else if (selectedTab == "Workflow")
+        {
+            <h2>Editorial workflow</h2>
+            <p>
+                Track deterministic stages, specialist agents,
+                approvals, and resumable execution.
+            </p>
+
+            <div class="workflow-strip">
+                <div class="complete">
+                    <span>1</span>
+                    <strong>Brief</strong>
+                    <small>Ready</small>
+                </div>
+                <i></i>
+                <div>
+                    <span>2</span>
+                    <strong>Research</strong>
+                    <small>Not started</small>
+                </div>
+                <i></i>
+                <div>
+                    <span>3</span>
+                    <strong>Draft</strong>
+                    <small>Not started</small>
+                </div>
+                <i></i>
+                <div>
+                    <span>4</span>
+                    <strong>Approval</strong>
+                    <small>Not started</small>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="section-heading">
+                <div>
+                    <h2>Evaluation evidence</h2>
+                    <p>
+                        Quality, groundedness, safety, and regression
+                        results for this episode.
+                    </p>
+                </div>
+
+                <a class="btn btn-sm btn-outline-primary"
+                   href="/evaluations">
+                    Open evaluations
+                </a>
+            </div>
+
+            <div class="metric-grid compact">
+                <div class="metric-card">
+                    <div class="metric-label">Quality</div>
+                    <div class="metric-value">—</div>
+                    <div class="metric-note">No evaluation run</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Groundedness</div>
+                    <div class="metric-value">—</div>
+                    <div class="metric-note">
+                        No evidence generated
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Safety</div>
+                    <div class="metric-value">—</div>
+                    <div class="metric-note">
+                        Guardrails not configured
+                    </div>
+                </div>
+            </div>
+        }
+    </section>
+}
 
 @code {
-  [Parameter] public string Id { get; set; } = string.Empty;
-  private readonly string[] tabs = ["Overview", "AI Planner", "Transcript", "Media", "Knowledge", "Workflow", "Evaluation"];
-  private string selectedTab = "Overview";
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private static readonly string[] tabs =
+    [
+        "Overview",
+        "AI Planner",
+        "Transcript",
+        "Media",
+        "Knowledge",
+        "Workflow",
+        "Evaluation"
+    ];
+
+    private EpisodeDetails? episode;
+    private string selectedTab = "Overview";
+    private string? loadError;
+    private bool isLoading;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadEpisodeAsync();
+    }
+
+    private async Task LoadEpisodeAsync()
+    {
+        episode = null;
+        loadError = null;
+        isLoading = true;
+
+        try
+        {
+            if (!Guid.TryParse(Id, out Guid episodeId))
+            {
+                loadError =
+                    "The requested episode identifier is invalid.";
+
+                return;
+            }
+
+            AuthenticationState authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            string? ownerId = authenticationState.User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                loadError =
+                    "The authenticated user could not be resolved.";
+
+                return;
+            }
+
+            episode = await EpisodeService.GetAsync(
+                episodeId,
+                ownerId);
+
+            if (episode is null)
+            {
+                loadError =
+                    "The episode could not be found or is not " +
+                    "available to the current user.";
+            }
+        }
+        catch
+        {
+            loadError =
+                "VibeCast could not load the episode workspace.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatPublicationDate(DateOnly? date)
+    {
+        return date?.ToString(
+                   "MMMM d, yyyy",
+                   CultureInfo.InvariantCulture)
+               ?? "Not scheduled";
+    }
+
+    private static string GetStatusLabel(EpisodeStatus status)
+    {
+        return status switch
+        {
+            EpisodeStatus.ReadyForReview => "Ready for review",
+            _ => status.ToString()
+        };
+    }
+
+    private static string GetStatusBadgeClass(EpisodeStatus status)
+    {
+        return status switch
+        {
+            EpisodeStatus.Draft => "badge-neutral",
+            EpisodeStatus.Planning => "badge-info",
+            EpisodeStatus.ReadyForReview => "badge-warning",
+            EpisodeStatus.Published => "badge-success",
+            EpisodeStatus.Archived => "badge-neutral",
+            _ => "badge-neutral"
+        };
+    }
 }
