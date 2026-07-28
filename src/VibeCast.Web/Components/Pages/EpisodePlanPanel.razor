@@ -8,9 +8,7 @@
             <h2>@Result.Plan.Summary</h2>
             <p class="mb-0">
                 Generated using @Result.PromptVersion at
-                @Result.GeneratedAtUtc
-                    .ToLocalTime()
-                    .ToString("g", CultureInfo.CurrentCulture).
+                @Result.GeneratedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture).
             </p>
         </div>
 
