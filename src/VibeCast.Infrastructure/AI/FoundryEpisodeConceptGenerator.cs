@@ -36,11 +36,6 @@ public sealed class FoundryEpisodeConceptGenerator(
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
 
-    public Task<Guid> CreateAsync(CreateEpisodeRequest request, string ownerId, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<EpisodeConceptResult> GenerateAsync(GenerateEpisodeConceptRequest request, 
         CancellationToken cancellationToken = default)
     {

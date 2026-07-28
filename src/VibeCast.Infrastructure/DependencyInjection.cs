@@ -82,6 +82,10 @@ public static class DependencyInjection
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
 
+        services.AddScoped<
+            IEpisodePlanningService,
+            FoundryEpisodePlanningService>();
+
         return services;
     }
 }

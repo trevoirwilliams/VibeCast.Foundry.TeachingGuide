@@ -1,0 +1,142 @@
+@using System.Globalization
+@using VibeCast.Application.Episodes
+
+<div class="planner-result">
+    <div class="section-heading">
+        <div>
+            <div class="eyebrow">Structured episode plan</div>
+            <h2>@Result.Plan.Summary</h2>
+            <p class="mb-0">
+                Generated using @Result.PromptVersion at
+                @Result.GeneratedAtUtc
+                    .ToLocalTime()
+                    .ToString("g", CultureInfo.CurrentCulture).
+            </p>
+        </div>
+
+        <span class="status-badge badge-success">
+            Typed plan
+        </span>
+    </div>
+
+    <div class="row g-3 my-2">
+        <div class="col-md-4">
+            <div class="metric-card h-100">
+                <div class="metric-label">Target duration</div>
+                <div class="metric-value">
+                    @Result.Plan.TargetDurationMinutes min
+                </div>
+                <div class="metric-note">
+                    Proposed by the planner
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="metric-card h-100">
+                <div class="metric-label">Segments</div>
+                <div class="metric-value">
+                    @Result.Plan.Segments.Length
+                </div>
+                <div class="metric-note">
+                    Ordered editorial sections
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="metric-card h-100">
+                <div class="metric-label">Evidence needs</div>
+                <div class="metric-value">
+                    @Result.Plan.EvidenceRequirements.Length
+                </div>
+                <div class="metric-note">
+                    Claims requiring support
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid gap-3 mt-4">
+        @foreach (
+            EpisodePlanSegment segment
+            in Result.Plan.Segments.OrderBy(item => item.Sequence))
+        {
+            <article class="panel-muted">
+                <div class="d-flex align-items-start gap-3">
+                    <span class="form-section-title">
+                        <span>@segment.Sequence</span>
+                    </span>
+
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <h3 class="h5 mb-1">@segment.Title</h3>
+                                <p class="mb-2">@segment.Purpose</p>
+                            </div>
+
+                            <span class="badge text-bg-light">
+                                @segment.DurationMinutes min
+                            </span>
+                        </div>
+
+                        <strong>Talking points</strong>
+
+                        @if (segment.TalkingPoints.Length == 0)
+                        {
+                            <p class="text-muted mb-0">
+                                No talking points were returned.
+                            </p>
+                        }
+                        else
+                        {
+                            <ul class="mb-0">
+                                @foreach (
+                                    string talkingPoint
+                                    in segment.TalkingPoints)
+                                {
+                                    <li>@talkingPoint</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+            <section class="panel-muted h-100">
+                <h3 class="h5">Key messages</h3>
+                <ItemList Items="Result.Plan.KeyMessages" />
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="panel-muted h-100">
+                <h3 class="h5">Evidence requirements</h3>
+                <ItemList Items="Result.Plan.EvidenceRequirements" />
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="panel-muted h-100">
+                <h3 class="h5">Media requirements</h3>
+                <ItemList Items="Result.Plan.MediaRequirements" />
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="panel-muted h-100">
+                <h3 class="h5">Editorial risks</h3>
+                <ItemList Items="Result.Plan.EditorialRisks" />
+            </section>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public EpisodePlanningResult Result { get; set; } = default!;
+}

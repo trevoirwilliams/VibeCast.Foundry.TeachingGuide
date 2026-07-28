@@ -1,12 +1,15 @@
 @page "/episodes/{Id}"
 @attribute [Authorize]
+@implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Globalization
 @using System.Security.Claims
 @using VibeCast.Application.Episodes
 @using VibeCast.Domain.Episodes
 @inject IEpisodeService EpisodeService
+@inject IEpisodePlanningService EpisodePlanningService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<EpisodeWorkspace> Logger
 
 <PageTitle>
     @(episode is null ? "Episode workspace" : episode.Title)
@@ -66,8 +69,10 @@ else if (episode is not null)
             </button>
 
             <button class="btn btn-primary"
-                    disabled>
-                Generate plan
+                    type="button"
+                    disabled="@(isGeneratingPlan || episode is null)"
+                    @onclick="GeneratePlanAsync">
+                @(isGeneratingPlan ? "Generating plan..." : "Generate plan")
             </button>
         </div>
     </div>
@@ -138,23 +143,65 @@ else if (episode is not null)
         }
         else if (selectedTab == "AI Planner")
         {
-            <div class="empty-state large">
-                <div class="empty-icon">✦</div>
-                <div>
-                    <h2>Generate a structured episode plan</h2>
-                    <p>
-                        This surface will display segments, key
-                        messages, evidence requirements, media
-                        requirements, and editorial risks.
-                    </p>
-                    <button class="btn btn-primary" disabled>
-                        Generate plan
-                    </button>
-                    <small>
-                        Structured planning is the next milestone.
-                    </small>
+            @if (isGeneratingPlan)
+            {
+                <div class="empty-state large">
+                    <div class="empty-icon">…</div>
+                    <div>
+                        <h2>Generating a structured episode plan</h2>
+                        <p>
+                            Microsoft Foundry is mapping the persisted brief
+                            into the VibeCast planning contract.
+                        </p>
+
+                        <button class="btn btn-outline-secondary"
+                                type="button"
+                                @onclick="CancelPlanGeneration">
+                            Stop generation
+                        </button>
+                    </div>
                 </div>
-            </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(planError))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @planError
+                </div>
+
+                <button class="btn btn-primary"
+                        type="button"
+                        @onclick="GeneratePlanAsync">
+                    Try again
+                </button>
+            }
+            else if (planningResult is not null)
+            {
+                <EpisodePlanPanel Result="planningResult" />
+            }
+            else
+            {
+                <div class="empty-state large">
+                    <div class="empty-icon">✦</div>
+                    <div>
+                        <h2>Generate a structured episode plan</h2>
+                        <p>
+                            Convert the persisted editorial brief into
+                            segments, messages, evidence needs, media
+                            requirements, and editorial risks.
+                        </p>
+
+                        <button class="btn btn-primary"
+                                type="button"
+                                @onclick="GeneratePlanAsync">
+                            Generate plan
+                        </button>
+
+                        <small>
+                            The generated candidate is not persisted yet.
+                        </small>
+                    </div>
+                </div>
+            }
         }
         else if (selectedTab == "Transcript")
         {
@@ -352,6 +399,10 @@ else if (episode is not null)
     private string selectedTab = "Overview";
     private string? loadError;
     private bool isLoading;
+    private EpisodePlanningResult? planningResult;
+    private string? planError;
+    private bool isGeneratingPlan;
+    private CancellationTokenSource? planningCancellation;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -440,5 +491,91 @@ else if (episode is not null)
             EpisodeStatus.Archived => "badge-neutral",
             _ => "badge-neutral"
         };
+    }
+
+    private async Task GeneratePlanAsync()
+    {
+        if (episode is null || isGeneratingPlan)
+        {
+            return;
+        }
+
+        selectedTab = "AI Planner";
+        planError = null;
+        planningResult = null;
+
+        planningCancellation?.Cancel();
+        planningCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation =
+            new(TimeSpan.FromSeconds(90));
+
+        planningCancellation = currentCancellation;
+        isGeneratingPlan = true;
+
+        try
+        {
+            GenerateEpisodePlanRequest request = new(
+                EpisodeId: episode.Id,
+                Title: episode.Title,
+                Description: episode.Description,
+                TargetAudience: episode.TargetAudience,
+                Objective: episode.Objective,
+                Tone: episode.Tone,
+                Language: episode.Language,
+                PlannedPublishDate: episode.PlannedPublishDate);
+
+            planningResult =
+                await EpisodePlanningService.GenerateAsync(
+                    request,
+                    currentCancellation.Token);
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            planError =
+                "Episode planning was cancelled or exceeded " +
+                "the 90-second time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to generate a typed episode plan for " +
+                "episode {EpisodeId}.",
+                episode.Id);
+
+            planError =
+                "VibeCast could not generate a typed episode plan. " +
+                "Verify the Foundry model configuration and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    planningCancellation,
+                    currentCancellation))
+            {
+                planningCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+            isGeneratingPlan = false;
+        }
+    }
+
+    private void CancelPlanGeneration()
+    {
+        planningCancellation?.Cancel();
+    }
+
+    public void Dispose()
+    {
+        CancellationTokenSource? cancellation =
+            Interlocked.Exchange(
+                ref planningCancellation,
+                null);
+
+        cancellation?.Cancel();
+        cancellation?.Dispose();
     }
 }
