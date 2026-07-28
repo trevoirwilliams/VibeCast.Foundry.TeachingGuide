@@ -1,9 +1,11 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using Azure.AI.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VibeCast.Application.Abstractions.Jobs;
 using VibeCast.Application.Abstractions.Storage;
@@ -58,11 +60,24 @@ public static class DependencyInjection
                 .GetRequiredService<IOptions<FoundryOptions>>()
                 .Value;
 
+            ILoggerFactory loggerFactory =
+                serviceProvider
+                    .GetRequiredService<ILoggerFactory>();
+
+            AzureOpenAIClientOptions clientOptions = new()
+            {
+                RetryPolicy = new ClientRetryPolicy(
+                    maxRetries: options.MaxRetries,
+                    enableLogging: true,
+                    loggerFactory: loggerFactory)
+            };
+
             return new AzureOpenAIClient(
                 new Uri(
                     options.ProjectEndpoint,
                     UriKind.Absolute),
-                new ApiKeyCredential(options.ApiKey ?? string.Empty));
+                new ApiKeyCredential(options.ApiKey ?? string.Empty),
+                clientOptions);
         });
 
         services.AddSingleton<IChatClient>(serviceProvider =>
@@ -74,9 +89,17 @@ public static class DependencyInjection
             AzureOpenAIClient azureOpenAIClient =
                 serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
-            return azureOpenAIClient
-                .GetChatClient(options.ChatModelDeployment)
-                .AsIChatClient();
+            ILogger<ChatResponseLoggingClient> logger =
+                serviceProvider.GetRequiredService<
+                    ILogger<ChatResponseLoggingClient>>();
+
+            IChatClient providerClient = azureOpenAIClient
+               .GetChatClient(options.ChatModelDeployment)
+               .AsIChatClient();
+
+             return new ChatResponseLoggingClient(
+                providerClient,
+                logger);
         });
 
         services.AddScoped<

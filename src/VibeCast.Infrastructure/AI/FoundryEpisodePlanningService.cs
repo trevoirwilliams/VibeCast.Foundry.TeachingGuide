@@ -186,6 +186,10 @@ public class FoundryEpisodePlanningService(
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
+        ChatResponseCompletionGuard.EnsureUsableCompletion(
+            response.FinishReason,
+            operationName);
+
         if (!response.TryGetResult(out EpisodePlan? plan) ||
             plan is null)
         {

@@ -48,6 +48,10 @@ public sealed class FoundryEpisodeConceptGenerator(
             chatOptions,
             cancellationToken);
 
+        ChatResponseCompletionGuard.EnsureUsableCompletion(
+            response.FinishReason,
+            operationName: "Episode concept generation");
+
         string content = response.Text?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(content))
@@ -70,6 +74,7 @@ public sealed class FoundryEpisodeConceptGenerator(
 
         int chunkCount = 0;
         int characterCount = 0;
+        ChatFinishReason? finishReason = null;
 
         await foreach (
             ChatResponseUpdate update
@@ -78,6 +83,11 @@ public sealed class FoundryEpisodeConceptGenerator(
                 chatOptions,
                 cancellationToken))
         {
+            if (update.FinishReason is not null)
+            {
+                finishReason = update.FinishReason;
+            }
+
             string text = update.Text ?? string.Empty;
 
             if (text.Length == 0)
@@ -90,6 +100,10 @@ public sealed class FoundryEpisodeConceptGenerator(
 
             yield return text;
         }
+
+        ChatResponseCompletionGuard.EnsureUsableCompletion(
+            finishReason,
+            operationName: "Episode concept streaming");
 
         if (characterCount == 0)
         {
