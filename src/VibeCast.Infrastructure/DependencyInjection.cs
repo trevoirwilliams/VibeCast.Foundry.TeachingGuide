@@ -49,6 +49,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
+        services.AddSingleton<IValidator<EpisodePlan>, EpisodePlanValidator>();
         services.AddScoped<IEpisodeService, EfEpisodeService>();
 
         services.AddSingleton<AzureOpenAIClient>(serviceProvider =>

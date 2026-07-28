@@ -12,9 +12,27 @@
             </p>
         </div>
 
-        <span class="status-badge badge-success">
-            Typed plan
-        </span>
+        @if (Result.RepairAttempted)
+        {
+            <span class="status-badge badge-warning">
+                Repaired once
+            </span>
+        }
+        else
+        {
+            <span class="status-badge badge-success">
+                Valid first response
+            </span>
+        }
+
+        @if (Result.RepairAttempted)
+        {
+            <div class="alert alert-warning mt-3" role="status">
+                The initial candidate failed deterministic validation.
+                VibeCast accepted this replacement after one bounded repair
+                using @Result.RepairPromptVersion.
+            </div>
+        }
     </div>
 
     <div class="row g-3 my-2">

@@ -6,6 +6,7 @@
 @using System.Security.Claims
 @using VibeCast.Application.Episodes
 @using VibeCast.Domain.Episodes
+@using VibeCast.Application.Validation
 @inject IEpisodeService EpisodeService
 @inject IEpisodePlanningService EpisodePlanningService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -165,13 +166,28 @@ else if (episode is not null)
             else if (!string.IsNullOrWhiteSpace(planError))
             {
                 <div class="alert alert-danger" role="alert">
-                    @planError
+                    <strong>@planError</strong>
+
+                    @if (planValidationFailures.Count > 0)
+                    {
+                        <ul class="mb-0 mt-2">
+                            @foreach (
+                                ValidationFailure failure
+                                in planValidationFailures)
+                            {
+                                <li>
+                                    <code>@failure.PropertyName</code>:
+                                    @failure.ErrorMessage
+                                </li>
+                            }
+                        </ul>
+                    }
                 </div>
 
                 <button class="btn btn-primary"
                         type="button"
                         @onclick="GeneratePlanAsync">
-                    Try again
+                    Generate a new plan
                 </button>
             }
             else if (planningResult is not null)
@@ -403,6 +419,7 @@ else if (episode is not null)
     private string? planError;
     private bool isGeneratingPlan;
     private CancellationTokenSource? planningCancellation;
+    private IReadOnlyList<ValidationFailure> planValidationFailures = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -503,6 +520,7 @@ else if (episode is not null)
         selectedTab = "AI Planner";
         planError = null;
         planningResult = null;
+        planValidationFailures = [];
 
         planningCancellation?.Cancel();
         planningCancellation?.Dispose();
@@ -536,6 +554,21 @@ else if (episode is not null)
             planError =
                 "Episode planning was cancelled or exceeded " +
                 "the 90-second time limit.";
+        }
+        catch (EpisodePlanValidationException exception)
+        {
+            planValidationFailures = exception.Failures;
+
+            planError =
+                "VibeCast rejected the generated episode plan after " +
+                "one bounded repair attempt.";
+
+            Logger.LogWarning(
+                "Episode plan generation ended with {FailureCount} " +
+                "deterministic validation failure(s) for episode " +
+                "{EpisodeId}.",
+                exception.Failures.Count,
+                episode.Id);
         }
         catch (Exception exception)
         {
