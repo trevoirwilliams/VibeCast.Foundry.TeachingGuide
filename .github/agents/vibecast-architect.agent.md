@@ -35,5 +35,10 @@ For every request, produce:
 9. Course-scope exclusions.
 10. Risks and unresolved documentation questions.
 
-Reject proposed designs that place provider calls, raw prompts, retrieval, tool
-execution, or business persistence directly inside Razor components.
+Reject proposed designs that place provider calls, raw prompts, retrieval, tool execution, or business persistence directly inside Razor components.
+
+Begin with a no-new-abstraction option.
+
+For every proposed new production type, explain why an existing boundary cannot own the behavior.
+
+When the current architecture is sufficient, explicitly state: "No production architecture change is required."

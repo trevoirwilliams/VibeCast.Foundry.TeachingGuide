@@ -37,4 +37,29 @@ public sealed class EpisodeTests
                 plannedPublishDate: null,
                 ownerId: "user-1"));
         }
+
+    [TestMethod]
+    public void SaveAcceptedPlan_WithBlankPlanJson_Throws()
+    {
+        Episode episode = Episode.Create(
+            title: "Test Episode",
+            description: null,
+            targetAudience: "Developers",
+            objective: "Test the blank-json guard",
+            tone: "Neutral",
+            language: "English",
+            plannedPublishDate: null,
+            ownerId: "owner-1");
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            episode.SaveAcceptedPlan(
+                planJson: " ",
+                promptVersion: "v1",
+                generatedAtUtc: DateTimeOffset.UtcNow,
+                repairAttempted: false,
+                repairPromptVersion: null,
+                formatPolicyVersion: null));
+
+        Assert.IsNull(episode.AcceptedPlanJson);
+    }
 }
