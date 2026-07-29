@@ -15,4 +15,10 @@ public interface IEpisodeService
         Guid episodeId,
         string ownerId,
         CancellationToken cancellationToken = default);
+
+    Task SavePlanAsync(
+        Guid episodeId,
+        string ownerId,
+        EpisodePlanningResult planningResult,
+        CancellationToken cancellationToken = default);
 }

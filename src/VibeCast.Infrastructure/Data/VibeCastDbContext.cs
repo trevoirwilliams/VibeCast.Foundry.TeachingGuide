@@ -46,6 +46,21 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
 
             entity.Property(episode => episode.PlannedPublishDate);
 
+            entity.Property(episode => episode.AcceptedPlanJson);
+
+            entity.Property(episode => episode.PlanPromptVersion)
+                .HasMaxLength(120);
+
+            entity.Property(episode => episode.PlanGeneratedAtUtc);
+
+            entity.Property(episode => episode.PlanRepairAttempted);
+
+            entity.Property(episode => episode.PlanRepairPromptVersion)
+                .HasMaxLength(120);
+
+            entity.Property(episode => episode.PlanFormatPolicyVersion)
+                .HasMaxLength(120);
+
             entity.HasIndex(x => new { x.OwnerId, x.CreatedAtUtc });
         });
 

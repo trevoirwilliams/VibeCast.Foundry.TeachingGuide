@@ -65,8 +65,15 @@ else if (episode is not null)
             </span>
 
             <button class="btn btn-outline-secondary"
-                    disabled>
-                Save changes
+                    type="button"
+                    disabled="@(
+                    planningResult is null ||
+                    planIsPersisted ||
+                    isSavingPlan ||
+                    isGeneratingPlan)"
+                    @onclick="SaveAcceptedPlanAsync">
+                @(isSavingPlan ? "Saving plan..."
+                    : planIsPersisted ? "Plan saved" : "Save accepted plan")
             </button>
 
             <button class="btn btn-primary"
@@ -144,6 +151,20 @@ else if (episode is not null)
         }
         else if (selectedTab == "AI Planner")
         {
+            @if (!string.IsNullOrWhiteSpace(planSaveError))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @planSaveError
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(planSaveMessage))
+            {
+                <div class="alert alert-success" role="status">
+                    @planSaveMessage
+                </div>
+            }
+
             @if (isGeneratingPlan)
             {
                 <div class="empty-state large">
@@ -192,6 +213,29 @@ else if (episode is not null)
             }
             else if (planningResult is not null)
             {
+                @if (planIsPersisted)
+                {
+                    <div class="alert alert-info" role="status">
+                        <strong>Saved episode plan</strong>
+
+                        <div>
+                            This accepted plan is persisted with the episode
+                            and will be restored when the workspace reloads.
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-warning" role="status">
+                        <strong>Accepted but not saved</strong>
+
+                        <div>
+                            Save this plan before refreshing or leaving
+                            the workspace.
+                        </div>
+                    </div>
+                }
+
                 <EpisodePlanPanel Result="planningResult" />
             }
             else
@@ -423,6 +467,15 @@ else if (episode is not null)
     private bool isGeneratingPlan;
     private CancellationTokenSource? planningCancellation;
     private IReadOnlyList<ValidationFailure> planValidationFailures = [];
+    private string? currentOwnerId;
+
+    private bool planIsPersisted;
+
+    private bool isSavingPlan;
+
+    private string? planSaveMessage;
+
+    private string? planSaveError;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -461,6 +514,8 @@ else if (episode is not null)
                 return;
             }
 
+            currentOwnerId = ownerId;
+
             episode = await EpisodeService.GetAsync(
                 episodeId,
                 ownerId);
@@ -471,6 +526,10 @@ else if (episode is not null)
                     "The episode could not be found or is not " +
                     "available to the current user.";
             }
+
+            planningResult = episode?.AcceptedPlan;
+
+            planIsPersisted = planningResult is not null;
         }
         catch
         {
@@ -524,6 +583,8 @@ else if (episode is not null)
         planError = null;
         planningResult = null;
         planValidationFailures = [];
+        planSaveMessage = null;
+        planSaveError = null;
 
         planningCancellation?.Cancel();
         planningCancellation?.Dispose();
@@ -550,6 +611,7 @@ else if (episode is not null)
                 await EpisodePlanningService.GenerateAsync(
                     request,
                     currentCancellation.Token);
+            planIsPersisted = false;
         }
         catch (OperationCanceledException)
             when (currentCancellation.IsCancellationRequested)
@@ -613,5 +675,46 @@ else if (episode is not null)
 
         cancellation?.Cancel();
         cancellation?.Dispose();
+    }
+
+    private async Task SaveAcceptedPlanAsync()
+    {
+        if (episode is null || planningResult is null || string.IsNullOrWhiteSpace(currentOwnerId) ||
+          planIsPersisted || isSavingPlan)
+        {
+            return;
+        }
+
+        planSaveMessage = null;
+        planSaveError = null;
+        isSavingPlan = true;
+
+        try
+        {
+            await EpisodeService.SavePlanAsync(
+                episode.Id,
+                currentOwnerId,
+                planningResult);
+
+            planIsPersisted = true;
+
+            planSaveMessage =
+                "The accepted episode plan was saved.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to save the accepted episode plan for " +
+                "episode {EpisodeId}.",
+                episode.Id);
+
+            planSaveError =
+                "VibeCast could not save the accepted episode plan.";
+        }
+        finally
+        {
+            isSavingPlan = false;
+        }
     }
 }

@@ -13,4 +13,5 @@ public sealed record EpisodeDetails(
     DateOnly? PlannedPublishDate,
     EpisodeStatus Status,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    EpisodePlanningResult? AcceptedPlan);

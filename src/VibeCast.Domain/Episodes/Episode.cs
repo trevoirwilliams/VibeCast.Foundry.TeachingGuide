@@ -40,6 +40,18 @@ public sealed class Episode : Entity
     public EpisodeStatus Status { get; private set; } = EpisodeStatus.Draft;
     public DateTimeOffset? ScheduledForUtc { get; private set; }
 
+    public string? AcceptedPlanJson { get; private set; }
+
+    public string? PlanPromptVersion { get; private set; }
+
+    public DateTimeOffset? PlanGeneratedAtUtc { get; private set; }
+
+    public bool PlanRepairAttempted { get; private set; }
+
+    public string? PlanRepairPromptVersion { get; private set; }
+
+    public string? PlanFormatPolicyVersion { get; private set; }
+
     public static Episode Create(
         string title,
         string? description,
@@ -83,5 +95,52 @@ public sealed class Episode : Entity
         }
 
         Title = value;
+    }
+
+    public void SaveAcceptedPlan(
+        string planJson,
+        string promptVersion,
+        DateTimeOffset generatedAtUtc,
+        bool repairAttempted,
+        string? repairPromptVersion,
+        string? formatPolicyVersion)
+    {
+        if (string.IsNullOrWhiteSpace(planJson))
+        {
+            throw new ArgumentException(
+                "The accepted plan JSON is required.",
+                nameof(planJson));
+        }
+
+        if (string.IsNullOrWhiteSpace(promptVersion))
+        {
+            throw new ArgumentException(
+                "The prompt version is required.",
+                nameof(promptVersion));
+        }
+
+        if (generatedAtUtc == default)
+        {
+            throw new ArgumentException(
+                "The plan generation timestamp is required.",
+                nameof(generatedAtUtc));
+        }
+
+        AcceptedPlanJson = planJson;
+        PlanPromptVersion = promptVersion.Trim();
+        PlanGeneratedAtUtc = generatedAtUtc;
+        PlanRepairAttempted = repairAttempted;
+
+        PlanRepairPromptVersion =
+            string.IsNullOrWhiteSpace(repairPromptVersion)
+                ? null
+                : repairPromptVersion.Trim();
+
+        PlanFormatPolicyVersion =
+            string.IsNullOrWhiteSpace(formatPolicyVersion)
+                ? null
+                : formatPolicyVersion.Trim();
+
+        MarkUpdated();
     }
 }

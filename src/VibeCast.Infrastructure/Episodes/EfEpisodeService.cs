@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VibeCast.Application.Episodes;
 using VibeCast.Domain.Episodes;
@@ -10,6 +11,9 @@ namespace VibeCast.Infrastructure.Episodes;
 
 public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFactory) : IEpisodeService
 {
+    private static readonly JsonSerializerOptions JsonOptions =
+    new(JsonSerializerDefaults.Web);
+    
     public async Task<Guid> CreateAsync(CreateEpisodeRequest request, string ownerId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -60,23 +64,123 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
             await dbContextFactory.CreateDbContextAsync(
                 cancellationToken);
 
-        return await dbContext.Episodes
+        Episode? episode =
+        await dbContext.Episodes
             .AsNoTracking()
-            .Where(episode =>
-                episode.Id == episodeId &&
-                episode.OwnerId == ownerId)
-            .Select(episode => new EpisodeDetails(
-                episode.Id,
-                episode.Title,
-                episode.Description,
-                episode.TargetAudience,
-                episode.Objective,
-                episode.Tone,
-                episode.Language,
-                episode.PlannedPublishDate,
-                episode.Status,
-                episode.CreatedAtUtc,
-                episode.UpdatedAtUtc))
-            .SingleOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(
+                item =>
+                    item.Id == episodeId &&
+                    item.OwnerId == ownerId,
+                cancellationToken);
+
+        if (episode is null)
+        {
+            return null;
+        }
+
+        EpisodePlanningResult? acceptedPlan = CreateAcceptedPlan(episode);
+
+        return new EpisodeDetails(
+            Id: episode.Id,
+            Title: episode.Title,
+            Description: episode.Description,
+            TargetAudience: episode.TargetAudience,
+            Objective: episode.Objective,
+            Tone: episode.Tone,
+            Language: episode.Language,
+            PlannedPublishDate: episode.PlannedPublishDate,
+            Status: episode.Status,
+            CreatedAtUtc: episode.CreatedAtUtc,
+            UpdatedAtUtc: episode.UpdatedAtUtc,
+            AcceptedPlan: acceptedPlan);
+    }
+
+    private EpisodePlanningResult? CreateAcceptedPlan(Episode episode)
+    {
+        if (string.IsNullOrWhiteSpace(episode.AcceptedPlanJson))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(episode.PlanPromptVersion) ||
+            episode.PlanGeneratedAtUtc is null)
+        {
+            throw new InvalidOperationException(
+                "The saved episode plan metadata is incomplete.");
+        }
+
+        EpisodePlan? plan = JsonSerializer.Deserialize<EpisodePlan>(episode.AcceptedPlanJson, JsonOptions);
+        if (plan is null)
+        {
+            throw new InvalidOperationException(
+                "The saved episode plan could not be read.");
+        }
+
+        return new EpisodePlanningResult(
+            Plan: plan,
+            PromptVersion:
+                episode.PlanPromptVersion,
+            GeneratedAtUtc:
+                episode.PlanGeneratedAtUtc.Value,
+            RepairAttempted:
+                episode.PlanRepairAttempted,
+            RepairPromptVersion:
+                episode.PlanRepairPromptVersion,
+            FormatPolicyVersion:
+                episode.PlanFormatPolicyVersion);
+    }
+
+    public async Task SavePlanAsync(
+    Guid episodeId,
+    string ownerId,
+    EpisodePlanningResult planningResult,
+    CancellationToken cancellationToken = default)
+    {
+        if (episodeId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A valid episode identifier is required.",
+                nameof(episodeId));
+        }
+
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        ArgumentNullException.ThrowIfNull(planningResult);
+
+        await using VibeCastDbContext dbContext =
+            await dbContextFactory.CreateDbContextAsync(
+                cancellationToken);
+
+        Episode episode =
+            await dbContext.Episodes
+                .SingleOrDefaultAsync(
+                    item =>
+                        item.Id == episodeId &&
+                        item.OwnerId == ownerId,
+                    cancellationToken)
+            ?? throw new KeyNotFoundException(
+                "The episode could not be found or is not available " +
+                "to the current user.");
+
+        string planJson =
+            JsonSerializer.Serialize(
+                planningResult.Plan,
+                JsonOptions);
+
+        episode.SaveAcceptedPlan(
+            planJson,
+            planningResult.PromptVersion,
+            planningResult.GeneratedAtUtc,
+            planningResult.RepairAttempted,
+            planningResult.RepairPromptVersion,
+            planningResult.FormatPolicyVersion);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
     }
 }
