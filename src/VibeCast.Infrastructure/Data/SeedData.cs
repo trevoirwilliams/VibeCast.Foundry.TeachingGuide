@@ -72,6 +72,90 @@ public static class SeedData
             db.ProcessingJobs.Add(completed);
         }
 
+        if (!await db.EpisodeFormatPolicies.AnyAsync(cancellationToken))
+        {
+            DateTimeOffset effectiveFromUtc =
+                new(
+                    year: 2026,
+                    month: 1,
+                    day: 1,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    offset: TimeSpan.Zero);
+
+            db.EpisodeFormatPolicies.AddRange(
+                EpisodeFormatPolicy.Create(
+                    version: "format-default-2026.1",
+                    tone: null,
+                    audienceKeyword: null,
+                    targetDurationMinutes: 24,
+                    pacingGuidance:
+                        "Use balanced pacing with clear transitions, " +
+                        "practical explanations, and a concise recap.",
+                    rationale:
+                        "Default guidance applies when no more specific " +
+                        "audience or tone policy matches.",
+                    priority: 0,
+                    effectiveFromUtc: effectiveFromUtc),
+
+                EpisodeFormatPolicy.Create(
+                    version: "format-executive-2026.1",
+                    tone: "Executive briefing",
+                    audienceKeyword: null,
+                    targetDurationMinutes: 18,
+                    pacingGuidance:
+                        "Lead with the decision, summarize the business " +
+                        "impact, and minimize background explanation.",
+                    rationale:
+                        "Executive briefings prioritize decisions, impact, " +
+                        "risk, and required action.",
+                    priority: 100,
+                    effectiveFromUtc: effectiveFromUtc),
+
+                EpisodeFormatPolicy.Create(
+                    version: "format-conversational-2026.1",
+                    tone: "Conversational",
+                    audienceKeyword: null,
+                    targetDurationMinutes: 22,
+                    pacingGuidance:
+                        "Use short sections, natural transitions, concrete " +
+                        "examples, and space for reflective commentary.",
+                    rationale:
+                        "Conversational delivery benefits from moderate " +
+                        "length and less densely packed segments.",
+                    priority: 100,
+                    effectiveFromUtc: effectiveFromUtc),
+
+                EpisodeFormatPolicy.Create(
+                    version: "format-technical-2026.1",
+                    tone: "Technical deep dive",
+                    audienceKeyword: null,
+                    targetDurationMinutes: 30,
+                    pacingGuidance:
+                        "Explain underlying mechanics, implementation " +
+                        "trade-offs, failure modes, and production evidence.",
+                    rationale:
+                        "A technical deep dive requires sufficient time for " +
+                        "mechanics, examples, and engineering trade-offs.",
+                    priority: 100,
+                    effectiveFromUtc: effectiveFromUtc),
+
+                EpisodeFormatPolicy.Create(
+                    version: "format-beginner-2026.1",
+                    tone: null,
+                    audienceKeyword: "beginner",
+                    targetDurationMinutes: 26,
+                    pacingGuidance:
+                        "Introduce one idea at a time, explain it in plain " +
+                        "language, demonstrate it, and recap before moving on.",
+                    rationale:
+                        "Beginner audiences require additional explanation " +
+                        "and reinforcement.",
+                    priority: 80,
+                    effectiveFromUtc: effectiveFromUtc));
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -5,4 +5,5 @@ public sealed record EpisodePlanningResult(
     string PromptVersion,
     DateTimeOffset GeneratedAtUtc,
     bool RepairAttempted,
-    string? RepairPromptVersion);
+    string? RepairPromptVersion,
+    string? FormatPolicyVersion = null);

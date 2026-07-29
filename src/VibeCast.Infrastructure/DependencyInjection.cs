@@ -52,7 +52,10 @@ public static class DependencyInjection
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
         services.AddSingleton<IValidator<EpisodePlan>, EpisodePlanValidator>();
+        services.AddSingleton<IValidator<EpisodeFormatGuidanceValidationRequest>, EpisodeFormatGuidanceValidator>();
+
         services.AddScoped<IEpisodeService, EfEpisodeService>();
+        services.AddScoped<IEpisodeFormatPolicyProvider, EfEpisodeFormatPolicyProvider>();
 
         services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
         {
@@ -82,33 +85,57 @@ public static class DependencyInjection
 
         services.AddSingleton<IChatClient>(serviceProvider =>
         {
-            FoundryOptions options = serviceProvider
-                .GetRequiredService<IOptions<FoundryOptions>>()
-                .Value;
+        FoundryOptions options = serviceProvider
+            .GetRequiredService<IOptions<FoundryOptions>>()
+            .Value;
 
-            AzureOpenAIClient azureOpenAIClient =
-                serviceProvider.GetRequiredService<AzureOpenAIClient>();
+        AzureOpenAIClient azureOpenAIClient =
+            serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
-            ILogger<ChatResponseLoggingClient> logger =
-                serviceProvider.GetRequiredService<
-                    ILogger<ChatResponseLoggingClient>>();
+        ILogger<ChatResponseLoggingClient> logger =
+            serviceProvider.GetRequiredService<
+                ILogger<ChatResponseLoggingClient>>();
 
-            IChatClient providerClient = azureOpenAIClient
-               .GetChatClient(options.ChatModelDeployment)
-               .AsIChatClient();
+        ILoggerFactory loggerFactory =
+           serviceProvider.GetRequiredService<
+               ILoggerFactory>();
 
-             return new ChatResponseLoggingClient(
-                providerClient,
-                logger);
+        IChatClient providerClient = azureOpenAIClient
+           .GetChatClient(options.ChatModelDeployment)
+           .AsIChatClient();
+
+        IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
+            providerClient,
+            logger);
+
+            return new ChatClientBuilder(monitoredProviderClient)
+            .UseFunctionInvocation(
+                loggerFactory,
+                functionClient =>
+                {
+                    functionClient.MaximumIterationsPerRequest = 4;
+
+                    functionClient
+                        .MaximumConsecutiveErrorsPerRequest = 0;
+
+                    functionClient.AllowConcurrentInvocation = false;
+                })
+            .Build(serviceProvider);
         });
 
         services.AddScoped<
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
 
-        services.AddScoped<
+        services.AddKeyedScoped<
             IEpisodePlanningService,
-            FoundryEpisodePlanningService>();
+            FoundryEpisodePlanningService>(
+            EpisodePlanningServiceKeys.WithoutTools);
+
+        services.AddKeyedScoped<
+            IEpisodePlanningService,
+            FoundryEpisodePlanningWithToolService>(
+            EpisodePlanningServiceKeys.WithTools);
 
         return services;
     }

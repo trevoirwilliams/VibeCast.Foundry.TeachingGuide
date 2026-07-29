@@ -1,14 +1,14 @@
 @page "/episodes/{Id}"
 @attribute [Authorize]
 @implements IDisposable
-@using Microsoft.AspNetCore.Components.Authorization
 @using System.Globalization
 @using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @using VibeCast.Application.Episodes
-@using VibeCast.Domain.Episodes
 @using VibeCast.Application.Validation
+@using VibeCast.Domain.Episodes
+@using VibeCast.Infrastructure.AI
 @inject IEpisodeService EpisodeService
-@inject IEpisodePlanningService EpisodePlanningService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<EpisodeWorkspace> Logger
 
@@ -399,6 +399,9 @@ else if (episode is not null)
 @code {
     [Parameter]
     public string Id { get; set; } = string.Empty;
+
+    [Inject(Key = EpisodePlanningServiceKeys.WithTools)]
+    public IEpisodePlanningService EpisodePlanningService { get; set; } = default!;
 
     private static readonly string[] tabs =
     [

@@ -12,11 +12,8 @@ namespace VibeCast.Infrastructure.AI;
 public class FoundryEpisodePlanningService(
     IChatClient chatClient,
     IValidator<EpisodePlan> planValidator,
-    ILogger<FoundryEpisodePlanningService> logger) : IEpisodePlanningService
+    ILogger<FoundryEpisodePlanningService> logger) : CommonEpisodePlanningMethods, IEpisodePlanningService
 {
-    private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
-
     public async Task<EpisodePlanningResult> GenerateAsync(GenerateEpisodePlanRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -115,62 +112,6 @@ public class FoundryEpisodePlanningService(
 
     }
 
-    private ChatMessage[] CreateRepairMessages(string editorialBriefJson, EpisodePlan invalidPlan, IReadOnlyCollection<ValidationFailure> failures)
-    {
-        string invalidPlanJson =
-            JsonSerializer.Serialize(
-                invalidPlan,
-                JsonOptions);
-
-        string validationFailuresJson =
-            JsonSerializer.Serialize(
-                failures.Select(
-                    failure => new
-                    {
-                        propertyName = failure.PropertyName,
-                        errorMessage = failure.ErrorMessage
-                    }),
-                JsonOptions);
-
-        string combinedSystemInstructions =
-            $"""
-             {EpisodePlannerPrompt.Instructions}
-
-             {EpisodePlannerPrompt.RepairInstructions}
-             """;
-
-        return
-        [
-            new ChatMessage(
-                ChatRole.System,
-                combinedSystemInstructions),
-
-            new ChatMessage(
-                ChatRole.User,
-                $$"""
-                  Repair the invalid episode plan using the original
-                  editorial brief and deterministic validation failures.
-
-                  Repair prompt version:
-                  {{EpisodePlannerPrompt.RepairVersion}}
-
-                  <editorial-brief>
-                  {{editorialBriefJson}}
-                  </editorial-brief>
-
-                  <invalid-episode-plan>
-                  {{invalidPlanJson}}
-                  </invalid-episode-plan>
-
-                  <validation-failures>
-                  {{validationFailuresJson}}
-                  </validation-failures>
-
-                  Return one complete replacement episode plan.
-                  """)
-        ];
-    }
-
     private async Task<EpisodePlan> RequestTypedPlanAsync(ChatMessage[] initialMessages, string operationName, CancellationToken cancellationToken)
     {
         ChatOptions options = new()
@@ -210,44 +151,5 @@ public class FoundryEpisodePlanningService(
         return plan;
     }
 
-    private ChatMessage[] CreateInitialMessages(string editorialBriefJson)
-    {
-        return
-        [
-            new ChatMessage(
-                ChatRole.System,
-                EpisodePlannerPrompt.Instructions),
-
-            new ChatMessage(
-                ChatRole.User,
-                $$"""
-                  Create one typed episode plan from the following
-                  editorial brief.
-
-                  Prompt version: {{EpisodePlannerPrompt.Version}}
-
-                  <editorial-brief>
-                  {{editorialBriefJson}}
-                  </editorial-brief>
-                  """)
-        ];
-    }
-
-    private string CreateEditorialBriefJson(GenerateEpisodePlanRequest request)
-    {
-        return JsonSerializer.Serialize(
-            new
-            {
-                title = request.Title.Trim(),
-                description = request.Description?.Trim(),
-                targetAudience =
-                    request.TargetAudience.Trim(),
-                objective = request.Objective.Trim(),
-                tone = request.Tone.Trim(),
-                language = request.Language.Trim(),
-                plannedPublishDate =
-                    request.PlannedPublishDate
-            },
-            JsonOptions);
-    }
+    
 }

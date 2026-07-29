@@ -14,6 +14,7 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<EpisodeFormatPolicy> EpisodeFormatPolicies => Set<EpisodeFormatPolicy>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -78,6 +79,41 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.DisplayName).HasMaxLength(120).IsRequired();
             entity.Property(x => x.TimeZoneId).HasMaxLength(100).IsRequired();
             entity.HasIndex(x => x.IdentityUserId).IsUnique();
+        });
+
+        builder.Entity<EpisodeFormatPolicy>(entity =>
+        {
+            entity.ToTable("EpisodeFormatPolicies");
+
+            entity.HasKey(policy => policy.Id);
+
+            entity.Property(policy => policy.Version)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(policy => policy.Tone)
+                .HasMaxLength(80);
+
+            entity.Property(policy => policy.AudienceKeyword)
+                .HasMaxLength(80);
+
+            entity.Property(policy => policy.PacingGuidance)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(policy => policy.Rationale)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.HasIndex(policy => policy.Version)
+                .IsUnique();
+
+            entity.HasIndex(
+                policy => new
+                {
+                    policy.IsActive,
+                    policy.EffectiveFromUtc
+                });
         });
     }
 }
