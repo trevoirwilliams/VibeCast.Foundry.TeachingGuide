@@ -321,7 +321,7 @@ else if (episode is not null)
                 </div>
 
                 <a class="btn btn-sm btn-outline-primary"
-                   href="/media/upload">
+                   href="@($"/media/upload?episodeId={episode?.Id:D}")">
                     Add media
                 </a>
             </div>

@@ -16,6 +16,7 @@ using VibeCast.Infrastructure.AI;
 using VibeCast.Infrastructure.Data;
 using VibeCast.Infrastructure.Episodes;
 using VibeCast.Infrastructure.Jobs;
+using VibeCast.Infrastructure.Media;
 using VibeCast.Infrastructure.Options;
 using VibeCast.Infrastructure.Storage;
 
@@ -50,12 +51,15 @@ public static class DependencyInjection
         services.AddHostedService<BackgroundJobWorker>();
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
-        services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
+        services.AddSingleton<MediaUploadValidator>();
+        services.AddSingleton<IValidator<MediaUploadRequest>>(sp =>
+            sp.GetRequiredService<MediaUploadValidator>());
         services.AddSingleton<IValidator<EpisodePlan>, EpisodePlanValidator>();
         services.AddSingleton<IValidator<EpisodeFormatGuidanceValidationRequest>, EpisodeFormatGuidanceValidator>();
 
         services.AddScoped<IEpisodeService, EfEpisodeService>();
         services.AddScoped<IEpisodeFormatPolicyProvider, EfEpisodeFormatPolicyProvider>();
+        services.AddScoped<IMediaAssetService, EfMediaAssetService>();
 
         services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
         {

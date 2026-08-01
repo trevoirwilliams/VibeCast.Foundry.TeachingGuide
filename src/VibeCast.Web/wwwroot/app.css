@@ -165,6 +165,7 @@ code { color: var(--vc-teal-dark); background: #edf3f4; padding: .1rem .3rem; bo
 .preview-audio { background: linear-gradient(135deg, #dceff1, #eef7f8); }
 .preview-document { background: linear-gradient(135deg, #eef0f5, #fafbfc); }
 .preview-image { background: linear-gradient(135deg, #e4eef3, #eaf7f3); }
+.preview-video {background: linear-gradient(135deg, #e7ebff, #dff6ff);}
 .media-copy { padding: 1rem; }
 .media-copy small { color: var(--vc-muted); }
 .media-copy p { margin: .65rem 0; font-size: .8rem; color: #52656e; }

@@ -1,77 +1,316 @@
 @page "/media/upload"
 @attribute [Authorize]
+@implements IDisposable
+@using System.Security.Claims
+@using VibeCast.Application.Media
+@using VibeCast.Application.Validation
+@inject IMediaAssetService MediaAssetService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<MediaUpload> Logger
 
 <PageTitle>Upload media</PageTitle>
 
-<div class="breadcrumb-line"><a href="/media">Media library</a><span>/</span><span>Upload media</span></div>
+<div class="breadcrumb-line">
+    <a href="/media">Media library</a>
+    <span>/</span>
+    <span>Upload media</span>
+</div>
+
 <div class="page-heading">
-  <div>
-    <div class="eyebrow">Content ingestion</div>
-    <h1>Upload source media</h1>
-    <p>Stage the form and processing choices that later connect to blob storage, background jobs, and multimodal AI services.</p>
-  </div>
+    <div>
+        <div class="eyebrow">Safe media intake</div>
+        <h1>Upload source media</h1>
+        <p>
+            Add an image, audio recording, video file, or production
+            document to the VibeCast workspace.
+        </p>
+    </div>
 </div>
 
 <div class="form-layout">
-  <section class="surface-card">
-    <div class="upload-dropzone">
-      <InputFile OnChange="SelectFile" />
-      <div class="upload-icon">⇧</div>
-      <h2>Drop a file here or browse</h2>
-      <p>Audio, image, PDF, and text files up to 250 MB</p>
-    </div>
+    <section class="surface-card">
+        <div class="upload-dropzone">
+            <InputFile OnChange="SelectFile"
+                       accept=".png,.jpg,.jpeg,.wav,.mp3,.m4a,.mp4,.pdf,.txt"
+                       disabled="@isUploading" />
 
-    @if (selectedFile is not null)
-    {
-      <div class="selected-file">
-        <div class="file-icon">@FileType(selectedFile.ContentType)</div>
-        <div><strong>@selectedFile.Name</strong><small>@selectedFile.ContentType · @FormatSize(selectedFile.Size)</small></div>
-        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="ClearFile">Remove</button>
-      </div>
-    }
+            <div class="upload-icon">⇧</div>
 
-    <div class="form-section">
-      <div class="form-section-title"><span>1</span><div><h2>Asset details</h2><p>Associate the file with its editorial context.</p></div></div>
-      <div class="row g-3">
-        <div class="col-md-6"><label class="form-label">Associated episode</label><select class="form-select"><option>Responsible AI in Production</option><option>Designing Reliable RAG</option><option>Multimodal Content Workflows</option></select></div>
-        <div class="col-md-6"><label class="form-label">Media category</label><select class="form-select"><option>Source audio</option><option>Reference image</option><option>Enterprise document</option><option>Promotional asset</option></select></div>
-        <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" rows="3" placeholder="Describe how this asset should be used."></textarea></div>
-      </div>
-    </div>
+            <h2>Choose one media file</h2>
 
-    <div class="form-section">
-      <div class="form-section-title"><span>2</span><div><h2>Requested processing</h2><p>These selections will later become validated background-job instructions.</p></div></div>
-      <div class="option-grid">
-        <label class="option-card"><input type="checkbox" /><div><strong>Transcribe audio</strong><small>Generate timestamped text and speaker segments.</small></div></label>
-        <label class="option-card"><input type="checkbox" /><div><strong>Analyze image</strong><small>Create captions, visual answers, and metadata.</small></div></label>
-        <label class="option-card"><input type="checkbox" /><div><strong>Extract document content</strong><small>Preserve fields, layout, and confidence.</small></div></label>
-        <label class="option-card"><input type="checkbox" /><div><strong>Accessibility description</strong><small>Generate an inclusive description for the asset.</small></div></label>
-      </div>
-    </div>
+            <p>
+                PNG, JPEG, WAV, MP3, M4A, MP4, PDF, or TXT.
+                Maximum size: 25 MB.
+            </p>
+        </div>
 
-    @if (showNotice)
-    {
-      <div class="alert alert-info">The upload request is staged. No bytes were persisted and no processing job was created on this UI-scaffold branch.</div>
-    }
+        @if (selectedFile is not null)
+        {
+            <div class="selected-file">
+                <div class="file-icon">
+                    @GetFileType(selectedFile.ContentType)
+                </div>
 
-    <div class="form-actions"><a class="btn btn-outline-secondary" href="/media">Cancel</a><button class="btn btn-primary" type="button" @onclick="StageUpload">Upload and process</button></div>
-  </section>
+                <div>
+                    <strong>@selectedFile.Name</strong>
 
-  <aside class="surface-card guidance-card">
-    <div class="guidance-icon">⇢</div>
-    <h2>Implementation path</h2>
-    <ol class="implementation-list"><li>Validate content type and size</li><li>Store through <code>IBlobStorage</code></li><li>Create a durable processing job</li><li>Route by modality</li><li>Persist normalized output and telemetry</li></ol>
-    <div class="mini-status"><span class="status-dot"></span><div><strong>Processing unavailable</strong><small>Storage and background execution are not invoked by this page.</small></div></div>
-  </aside>
+                    <small>
+                        @(
+                            string.IsNullOrWhiteSpace(selectedFile.ContentType)
+                                ? "No reported content type"
+                                : selectedFile.ContentType
+                        )
+                        · @FormatSize(selectedFile.Size)
+                    </small>
+                </div>
+
+                <button class="btn btn-sm btn-outline-secondary"
+                        type="button"
+                        disabled="@isUploading"
+                        @onclick="ClearFile">
+                    Remove
+                </button>
+            </div>
+        }
+
+        @if (EpisodeId is Guid episodeId)
+        {
+            <div class="alert alert-info">
+                This file will be associated with episode
+                <code>@episodeId</code>.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-secondary">
+                This file will be added to the owner’s shared Media Library.
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(uploadError))
+        {
+            <div class="alert alert-danger" role="alert">
+                @uploadError
+            </div>
+        }
+
+        @if (uploadResult is not null && !uploadResult.Succeeded)
+        {
+            <div class="alert alert-danger" role="alert">
+                <strong>Media rejected</strong>
+
+                <ul class="mb-0 mt-2">
+                    @foreach (ValidationFailure error in uploadResult.Errors)
+                    {
+                        <li>
+                            <code>@error.PropertyName</code>: @error.ErrorMessage
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (uploadResult?.Asset is not null)
+        {
+            <div class="alert alert-success" role="status">
+                <strong>Media accepted</strong>
+
+                <div>
+                    Asset <code>@uploadResult.Asset.Id</code> was stored as
+                    <strong>@uploadResult.Asset.ContentType</strong>
+                    and marked <strong>@uploadResult.Asset.Status</strong>.
+                </div>
+
+                <a class="alert-link" href="/media">
+                    Open the Media Library
+                </a>
+            </div>
+        }
+
+        <div class="form-actions">
+            <a class="btn btn-outline-secondary" href="/media">
+                Cancel
+            </a>
+
+            <button class="btn btn-primary"
+                    type="button"
+                    disabled="@(selectedFile is null || isUploading)"
+                    @onclick="UploadAsync">
+                @(isUploading ? "Validating and storing..." : "Validate and upload")
+            </button>
+        </div>
+    </section>
+
+    <aside class="surface-card guidance-card">
+        <div class="guidance-icon">⇢</div>
+
+        <h2>Intake checks</h2>
+
+        <ol class="implementation-list">
+            <li>Confirm the authenticated owner</li>
+            <li>Enforce the 25 MB stream limit</li>
+            <li>Validate the approved extension</li>
+            <li>Generate a private storage key</li>
+            <li>Verify the stored file signature</li>
+            <li>Persist the accepted media record</li>
+        </ol>
+
+        <div class="mini-status">
+            <span class="status-dot"></span>
+
+            <div>
+                <strong>No AI processing yet</strong>
+
+                <small>
+                    Analysis and transcription begin in later lessons.
+                </small>
+            </div>
+        </div>
+    </aside>
 </div>
 
 @code {
-  private IBrowserFile? selectedFile;
-  private bool showNotice;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "episodeId")]
+    public Guid? EpisodeId { get; set; }
 
-  private void SelectFile(InputFileChangeEventArgs args) => selectedFile = args.File;
-  private void ClearFile() => selectedFile = null;
-  private void StageUpload() => showNotice = true;
-  private static string FileType(string contentType) => contentType.StartsWith("audio/") ? "AU" : contentType.StartsWith("image/") ? "IM" : "DOC";
-  private static string FormatSize(long bytes) => bytes < 1_048_576 ? $"{bytes / 1024d:N1} KB" : $"{bytes / 1_048_576d:N1} MB";
+    private IBrowserFile? selectedFile;
+    private MediaUploadResult? uploadResult;
+    private string? uploadError;
+    private bool isUploading;
+    private CancellationTokenSource? uploadCancellation;
+
+    private void SelectFile(InputFileChangeEventArgs args)
+    {
+        selectedFile = args.File;
+        uploadResult = null;
+        uploadError = null;
+    }
+
+    private void ClearFile()
+    {
+        selectedFile = null;
+        uploadResult = null;
+        uploadError = null;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (selectedFile is null || isUploading)
+        {
+            return;
+        }
+
+        uploadResult = null;
+        uploadError = null;
+        isUploading = true;
+
+        var currentCancellation = new CancellationTokenSource();
+        uploadCancellation = currentCancellation;
+
+        try
+        {
+            var authenticationState =
+                await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+            var ownerId =
+                authenticationState.User
+                    .FindFirst(ClaimTypes.NameIdentifier)?
+                    .Value;
+
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                uploadError = "The authenticated user could not be resolved. Sign in again and retry.";
+                return;
+            }
+
+            var request = new MediaUploadRequest(
+                FileName: selectedFile.Name,
+                ContentType: selectedFile.ContentType,
+                SizeBytes: selectedFile.Size,
+                EpisodeId: EpisodeId);
+
+            await using var content = selectedFile.OpenReadStream(
+                MediaUploadValidator.MaximumSizeBytes,
+                currentCancellation.Token);
+
+            uploadResult = await MediaAssetService.UploadAsync(
+                request,
+                content,
+                ownerId,
+                currentCancellation.Token);
+
+            if (uploadResult.Succeeded)
+            {
+                selectedFile = null;
+            }
+        }
+        catch (IOException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "The selected media exceeded the upload limit or the stream ended unexpectedly.");
+
+            uploadError = "VibeCast could not read the selected file. Confirm that it is no larger than 25 MB.";
+        }
+        catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
+        {
+            uploadError = "The media upload was cancelled.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Media intake failed.");
+
+            uploadError = "VibeCast could not accept the file. Review the application logs and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(uploadCancellation, currentCancellation))
+            {
+                uploadCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+            isUploading = false;
+        }
+    }
+
+    private static string GetFileType(string contentType)
+    {
+        if (contentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "AU";
+        }
+
+        if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "IM";
+        }
+
+        if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "VI";
+        }
+
+        if (contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "TX";
+        }
+
+        return "DOC";
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1_048_576
+            ? $"{bytes / 1024d:N1} KB"
+            : $"{bytes / 1_048_576d:N1} MB";
+
+    public void Dispose()
+    {
+        CancellationTokenSource? cancellation = Interlocked.Exchange(ref uploadCancellation, null);
+        cancellation?.Cancel();
+        cancellation?.Dispose();
+    }
 }

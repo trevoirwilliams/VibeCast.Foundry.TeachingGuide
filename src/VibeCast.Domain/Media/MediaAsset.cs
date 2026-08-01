@@ -7,7 +7,8 @@ public enum MediaAssetStatus
     Uploaded = 0,
     Processing = 1,
     Ready = 2,
-    Failed = 3
+    Failed = 3,
+    Validated = 4
 }
 
 public sealed class MediaAsset : Entity
@@ -52,4 +53,17 @@ public sealed class MediaAsset : Entity
         Status = MediaAssetStatus.Failed;
         MarkUpdated();
     }
+
+    public void MarkValidated()
+    {
+        if (Status != MediaAssetStatus.Uploaded)
+        {
+            throw new InvalidOperationException(
+                "Only an uploaded asset can be validated.");
+        }
+
+        Status = MediaAssetStatus.Validated;
+        MarkUpdated();
+    }
+
 }
