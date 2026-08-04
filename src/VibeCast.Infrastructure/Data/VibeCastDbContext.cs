@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 using VibeCast.Domain.Jobs;
 using VibeCast.Domain.Media;
@@ -72,6 +73,27 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.OriginalFileName).HasMaxLength(260).IsRequired();
             entity.Property(x => x.StorageKey).HasMaxLength(512).IsRequired();
             entity.Property(x => x.ContentType).HasMaxLength(128).IsRequired();
+
+            entity.Property(x => x.ProposedAltText).HasMaxLength(ArtworkAnalysisValidator.MaximumAltTextLength);
+
+            entity.Property(x => x.AcceptedAltText)
+                .HasMaxLength(
+                    ArtworkAnalysisValidator
+                        .MaximumAltTextLength);
+
+            entity.Property(x => x.ArtworkSummary)
+                .HasMaxLength(
+                    ArtworkAnalysisValidator
+                        .MaximumSummaryLength);
+
+            entity.Property(x => x.ArtworkVisibleText)
+                .HasMaxLength(
+                    ArtworkAnalysisValidator
+                        .MaximumVisibleTextLength);
+
+            entity.Property(x => x.ArtworkPromptVersion)
+                .HasMaxLength(80);
+
             entity.HasIndex(x => x.StorageKey).IsUnique();
         });
 

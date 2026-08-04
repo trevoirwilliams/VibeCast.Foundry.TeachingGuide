@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VibeCast.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using VibeCast.Infrastructure.Data;
 namespace VibeCast.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(VibeCastDbContext))]
-    partial class VibeCastDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803202441_AddArtworkDescriptions_new")]
+    partial class AddArtworkDescriptions_new
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");

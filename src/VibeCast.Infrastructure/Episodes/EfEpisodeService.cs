@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VibeCast.Application.Episodes;
+using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 using VibeCast.Infrastructure.Data;
 
@@ -80,6 +81,25 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
 
         EpisodePlanningResult? acceptedPlan = CreateAcceptedPlan(episode);
 
+        List<MediaAssetSummary> mediaAssets = await dbContext.MediaAssets
+            .AsNoTracking()
+            .Where(asset =>
+                asset.OwnerId == ownerId &&
+                asset.EpisodeId == episodeId)
+            .Select(asset => new MediaAssetSummary(
+                asset.Id,
+                asset.EpisodeId,
+                asset.OriginalFileName,
+                asset.ContentType,
+                asset.SizeBytes,
+                asset.Status,
+                asset.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        IReadOnlyList<MediaAssetSummary> orderedMediaAssets = mediaAssets
+            .OrderByDescending(asset => asset.CreatedAtUtc)
+            .ToList();
+
         return new EpisodeDetails(
             Id: episode.Id,
             Title: episode.Title,
@@ -92,7 +112,8 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
             Status: episode.Status,
             CreatedAtUtc: episode.CreatedAtUtc,
             UpdatedAtUtc: episode.UpdatedAtUtc,
-            AcceptedPlan: acceptedPlan);
+            AcceptedPlan: acceptedPlan,
+            MediaAssets: orderedMediaAssets);
     }
 
     private EpisodePlanningResult? CreateAcceptedPlan(Episode episode)

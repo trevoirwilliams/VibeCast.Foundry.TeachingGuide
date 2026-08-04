@@ -5,6 +5,7 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using VibeCast.Application.Episodes
+@using VibeCast.Application.Media
 @using VibeCast.Application.Validation
 @using VibeCast.Domain.Episodes
 @using VibeCast.Infrastructure.AI
@@ -315,24 +316,91 @@ else if (episode is not null)
                 <div>
                     <h2>Episode media</h2>
                     <p>
-                        Associate audio, images, documents, and
+                        Related audio, images, documents, and
                         generated promotional assets.
                     </p>
                 </div>
 
-                <a class="btn btn-sm btn-outline-primary"
-                   href="@($"/media/upload?episodeId={episode?.Id:D}")">
+                <a class="btn btn-sm btn-outline-primary" href="@($"/media/upload?episodeId={episode?.Id:D}")">
                     Add media
                 </a>
             </div>
 
-            <div class="media-card-grid">
-                <div class="media-tile placeholder-tile">
-                    <div>＋</div>
-                    <strong>Add source media</strong>
-                    <small>Files remain unprocessed.</small>
+            @if (episode.MediaAssets.Count == 0)
+            {
+                <div class="empty-state compact">
+                    <a class="media-tile placeholder-tile" href="@($"/media/upload?episodeId={episode.Id:D}")">
+                        <div>＋</div>
+                        <strong>Add source media</strong>
+                        <small>Upload another validated asset.</small>
+                    </a>
+
+                    <div>
+                        <strong>No media assets yet</strong>
+                        <p>
+                            Upload source files or artwork tied to this episode.
+                        </p>
+                    </div>
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="media-card-grid">
+                    @foreach (MediaAssetSummary asset in episode.MediaAssets)
+                    {
+                        <article class="media-tile">
+                            <div class="media-preview @GetPreviewClass(asset)">
+                                <span>@GetTypeCode(asset)</span>
+                            </div>
+
+                            <div class="media-copy">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <strong>@asset.OriginalFileName</strong>
+
+                                    <span class="status-badge badge-info">
+                                        @asset.Status
+                                    </span>
+                                </div>
+
+                                <small>
+                                    @asset.ContentType · @FormatSize(asset.SizeBytes)
+                                </small>
+
+                                <p>
+                                    @GetMediaSummary(asset)
+                                </p>
+
+                                <div class="media-meta">
+                                    <span>
+                                        Attached to this episode
+                                    </span>
+
+                                    <span>
+                                        @asset.CreatedAtUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
+                                    </span>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="@($"/media/{asset.Id:D}/content")">
+                                        Open file
+                                    </a>
+
+                                    @if (IsArtwork(asset))
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="@($"/media/{asset.Id:D}/artwork")">
+                                            Review artwork
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        </article>
+                    }
+
+                    
+                </div>
+            }
         }
         else if (selectedTab == "Knowledge")
         {
@@ -548,6 +616,58 @@ else if (episode is not null)
                    "MMMM d, yyyy",
                    CultureInfo.InvariantCulture)
                ?? "Not scheduled";
+    }
+
+    private static string FormatSize(long bytes) =>
+        bytes < 1_048_576
+            ? $"{bytes / 1024d:N1} KB"
+            : $"{bytes / 1_048_576d:N1} MB";
+
+    private static string GetTypeCode(MediaAssetSummary asset)
+    {
+        string contentType = asset.ContentType.Trim().ToLowerInvariant();
+
+        return contentType switch
+        {
+            "image/png" or "image/jpeg" => "IM",
+            "audio/wav" or "audio/mpeg" or "audio/mp4" => "AU",
+            "video/mp4" => "VI",
+            "text/plain" => "TXT",
+            "application/pdf" => "PDF",
+            _ => "DOC"
+        };
+    }
+
+    private static string GetPreviewClass(MediaAssetSummary asset)
+    {
+        string contentType = asset.ContentType.Trim().ToLowerInvariant();
+
+        return contentType switch
+        {
+            "image/png" or "image/jpeg" => "preview-image",
+            "audio/wav" or "audio/mpeg" or "audio/mp4" => "preview-audio",
+            "video/mp4" => "preview-video",
+            _ => "preview-document"
+        };
+    }
+
+    private static bool IsArtwork(MediaAssetSummary asset) =>
+        asset.ContentType.Equals("image/png", StringComparison.OrdinalIgnoreCase) ||
+        asset.ContentType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase);
+
+    private static string GetMediaSummary(MediaAssetSummary asset)
+    {
+        string contentType = asset.ContentType.Trim().ToLowerInvariant();
+
+        return contentType switch
+        {
+            "image/png" or "image/jpeg" => "Artwork or cover image ready for review.",
+            "audio/wav" or "audio/mpeg" or "audio/mp4" => "Audio source ready for transcription.",
+            "video/mp4" => "Video source ready for extraction.",
+            "application/pdf" => "Supporting document attached for planning.",
+            "text/plain" => "Text reference attached for the episode.",
+            _ => "Supporting media attached for this episode."
+        };
     }
 
     private static string GetStatusLabel(EpisodeStatus status)

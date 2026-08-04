@@ -1,0 +1,505 @@
+@page "/media/{MediaAssetId:guid}/artwork"
+@attribute [Authorize]
+@implements IDisposable
+@using System.Security.Claims
+@using VibeCast.Application.Media
+@inject IMediaAssetService MediaAssetService
+@inject IArtworkAnalysisService ArtworkAnalysisService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<ArtworkReview> Logger
+
+<PageTitle>Artwork accessibility review</PageTitle>
+
+<div class="breadcrumb-line">
+    <a href="/media">Media library</a>
+    <span>/</span>
+    <span>Artwork review</span>
+</div>
+
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">
+            Multimodal analysis
+        </div>
+
+        <h1>
+            Analyze episode artwork
+        </h1>
+
+        <p>
+            Generate, review, and explicitly accept
+            an accessible description.
+        </p>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <section class="surface-card">
+        <p class="mb-0">
+            Loading artwork...
+        </p>
+    </section>
+}
+else if (workspace is null)
+{
+    <div class="alert alert-warning">
+        The selected artwork was not found or is not
+        available to the current user.
+    </div>
+}
+else
+{
+    <div class="form-layout">
+        <section class="surface-card">
+            <div class="d-flex justify-content-between
+                align-items-start gap-3 mb-3">
+                <div>
+                    <div class="eyebrow">
+                        Source artwork
+                    </div>
+
+                    <h2>
+                        @workspace.OriginalFileName
+                    </h2>
+
+                    <small>
+                        @workspace.ContentType
+                        · @FormatSize(workspace.SizeBytes)
+                    </small>
+                </div>
+
+                <span class="status-badge badge-info">
+                    @workspace.ReviewStatus
+                </span>
+            </div>
+
+            <div class="text-center">
+                <img src="@PreviewUrl"
+                     alt="@PreviewAltText"
+                     class="img-fluid rounded"
+                     style="max-height: 440px;
+                object-fit: contain;" />
+            </div>
+
+            @if (!workspace.IsAccepted)
+            {
+                <p class="text-muted mt-3 mb-0">
+                    The preview uses empty alternative
+                    text until an editor accepts the
+                    proposed description.
+                </p>
+            }
+        </section>
+
+        <section class="surface-card">
+            <div class="d-flex justify-content-between
+                align-items-start gap-3">
+                <div>
+                    <div class="eyebrow">
+                        Accessibility proposal
+                    </div>
+
+                    <h2>
+                        Review description
+                    </h2>
+                </div>
+
+                <button class="btn btn-primary"
+                        type="button"
+                        disabled="@(isAnalyzing || workspace.IsAccepted)"
+                        @onclick="AnalyzeAsync">
+                    @(isAnalyzing
+                        ? "Analyzing..."
+                        : workspace.HasProposal
+                            ? "Analyze again"
+                            : "Analyze artwork")
+                </button>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="alert alert-danger mt-3"
+                     role="alert">
+                    @errorMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <div class="alert alert-success mt-3"
+                     role="status">
+                    @statusMessage
+                </div>
+            }
+
+            @if (workspace.HasProposal)
+            {
+                <div class="mt-4">
+                    <label class="form-label"
+                           for="altText">
+                        Proposed alternative text
+                    </label>
+
+                    <InputTextArea id="altText"
+                                   class="form-control"
+                                   rows="4"
+                                   maxlength="@ArtworkAnalysisValidator.MaximumAltTextLength"
+                                   disabled="@workspace.IsAccepted"
+                                   @bind-Value="reviewAltText" />
+
+                    <div class="d-flex
+                        justify-content-between
+                        mt-1">
+                        <small class="text-muted">
+                            Describe the artwork's purpose
+                            and essential meaning.
+                        </small>
+
+                        <small>
+                            @reviewAltText.Length /
+                            @ArtworkAnalysisValidator.MaximumAltTextLength
+                        </small>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="h6">
+                        Visual summary
+                    </h3>
+
+                    <p>
+                        @workspace.VisualSummary
+                    </p>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="h6">
+                        Visible text
+                    </h3>
+
+                    @if (string.IsNullOrWhiteSpace(
+                            workspace.VisibleText))
+                    {
+                        <p class="text-muted">
+                            No clearly readable text was
+                            reported.
+                        </p>
+                    }
+                    else
+                    {
+                        <p>
+                            @workspace.VisibleText
+                        </p>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(
+                        workspace.PromptVersion))
+                {
+                    <div class="media-meta mt-4">
+                        <span>
+                            Prompt:
+                            @workspace.PromptVersion
+                        </span>
+
+                        <span>
+                            @workspace.AnalyzedAtUtc?.ToString("MMM d, yyyy HH:mm")
+                        </span>
+                    </div>
+                }
+
+                @if (!workspace.IsAccepted)
+                {
+                    <div class="form-actions mt-4">
+                        <a class="btn
+                            btn-outline-secondary"
+                           href="/media">
+                            Return to library
+                        </a>
+
+                        <button class="btn btn-success"
+                                type="button"
+                                disabled="@(isAccepting || string.IsNullOrWhiteSpace(reviewAltText))"
+                                @onclick="AcceptAsync">
+                            @(isAccepting
+                                ? "Accepting..."
+                                : "Accept description")
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-success mt-4">
+                        <strong>
+                            Accepted description
+                        </strong>
+
+                        <p class="mb-0 mt-2">
+                            @workspace.AcceptedAltText
+                        </p>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state compact mt-4">
+                    <div class="empty-icon">
+                        ✦
+                    </div>
+
+                    <div>
+                        <strong>
+                            No proposal yet
+                        </strong>
+
+                        <p>
+                            Analyze the artwork to create
+                            an accessibility proposal.
+                        </p>
+                    </div>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid MediaAssetId { get; set; }
+
+    private readonly CancellationTokenSource cancellationTokenSource = new();
+
+    private ArtworkWorkspace? workspace;
+    private string? ownerId;
+    private string reviewAltText = string.Empty;
+    private string? errorMessage;
+    private string? statusMessage;
+    private bool isLoading = true;
+    private bool isAnalyzing;
+    private bool isAccepting;
+
+    private string PreviewUrl => $"/media/{MediaAssetId:D}/content";
+
+    private string PreviewAltText => workspace?.AcceptedAltText ?? string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        statusMessage = null;
+
+        try
+        {
+            AuthenticationState authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            ownerId =
+                authenticationState.User
+                    .FindFirst(
+                        ClaimTypes.NameIdentifier)?
+                    .Value;
+
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                errorMessage =
+                    "The authenticated user could not " +
+                    "be resolved.";
+
+                return;
+            }
+
+            workspace =
+                await MediaAssetService.GetArtworkAsync(
+                    MediaAssetId,
+                    ownerId,
+                    cancellationTokenSource.Token);
+
+            reviewAltText =
+                workspace?.AcceptedAltText ??
+                workspace?.ProposedAltText ??
+                string.Empty;
+        }
+        catch (OperationCanceledException)
+            when (cancellationTokenSource
+                .IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load artwork " +
+                "{MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage =
+                "VibeCast could not load the artwork.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AnalyzeAsync()
+    {
+        if (workspace is null || string.IsNullOrWhiteSpace(ownerId) || workspace.IsAccepted ||
+            isAnalyzing)
+        {
+            return;
+        }
+
+        isAnalyzing = true;
+        errorMessage = null;
+        statusMessage = null;
+
+        try
+        {
+            ArtworkContent? artwork =
+                await MediaAssetService
+                    .OpenArtworkAsync(
+                        MediaAssetId,
+                        ownerId,
+                        cancellationTokenSource.Token);
+
+            if (artwork is null)
+            {
+                errorMessage =
+                    "The selected artwork was not found.";
+
+                return;
+            }
+
+            await using Stream content = artwork.Content;
+
+            AnalyzeArtworkRequest request =
+                new(
+                  EpisodeTitle:
+                        workspace.EpisodeTitle,
+
+                    OriginalFileName:
+                        artwork.OriginalFileName,
+
+                    ContentType:
+                        artwork.ContentType,
+
+                    SizeBytes:
+                        workspace.SizeBytes);
+
+            ArtworkAnalysisResult result =
+                await ArtworkAnalysisService
+                    .AnalyzeAsync(
+                        request,
+                        content,
+                        cancellationTokenSource.Token);
+
+            workspace =
+                await MediaAssetService
+                    .SaveArtworkAnalysisAsync(
+                        MediaAssetId,
+                        result,
+                        ownerId,
+                        cancellationTokenSource.Token);
+
+            reviewAltText =
+                workspace.ProposedAltText ??
+                string.Empty;
+
+            statusMessage =
+                "The proposed description is ready " +
+                "for editorial review.";
+        }
+        catch (OperationCanceledException)
+            when (cancellationTokenSource
+                .IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Artwork analysis failed for " +
+                "{MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage =
+                "VibeCast could not produce an " +
+                "acceptable artwork description. " +
+                "Review the logs and retry.";
+        }
+        finally
+        {
+            isAnalyzing = false;
+        }
+    }
+
+    private async Task AcceptAsync()
+    {
+        if (workspace is null || string.IsNullOrWhiteSpace(ownerId) || workspace.IsAccepted || isAccepting)
+        {
+            return;
+        }
+
+        isAccepting = true;
+        errorMessage = null;
+        statusMessage = null;
+
+        try
+        {
+            workspace =
+                await MediaAssetService
+                    .AcceptArtworkDescriptionAsync(
+                        MediaAssetId,
+                        reviewAltText,
+                        ownerId,
+                        cancellationTokenSource.Token);
+
+            reviewAltText =
+                workspace.AcceptedAltText ??
+                string.Empty;
+
+            statusMessage =
+                "The accessible description has been " +
+                "accepted.";
+        }
+        catch (ArgumentException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (OperationCanceledException)
+            when (cancellationTokenSource
+                .IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to accept the artwork " +
+                "description for {MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage =
+                "VibeCast could not accept the " +
+                "description.";
+        }
+        finally
+        {
+            isAccepting = false;
+        }
+    }
+
+    private static string FormatSize(
+        long bytes) =>
+        bytes < 1_048_576
+            ? $"{bytes / 1024d:N1} KB"
+            : $"{bytes / 1_048_576d:N1} MB";
+
+    public void Dispose()
+    {
+        cancellationTokenSource.Cancel();
+        cancellationTokenSource.Dispose();
+    }
+}

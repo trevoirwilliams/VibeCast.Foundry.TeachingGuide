@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VibeCast.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using VibeCast.Infrastructure.Data;
 namespace VibeCast.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(VibeCastDbContext))]
-    partial class VibeCastDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803202306_AddArtworkDescriptions")]
+    partial class AddArtworkDescriptions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -340,28 +343,6 @@ namespace VibeCast.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("AcceptedAltText")
-                        .HasMaxLength(150)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("ArtworkAcceptedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("ArtworkAnalyzedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ArtworkPromptVersion")
-                        .HasMaxLength(80)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ArtworkSummary")
-                        .HasMaxLength(600)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ArtworkVisibleText")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -381,10 +362,6 @@ namespace VibeCast.Infrastructure.Data.Migrations
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ProposedAltText")
-                        .HasMaxLength(150)
                         .HasColumnType("TEXT");
 
                     b.Property<long>("SizeBytes")

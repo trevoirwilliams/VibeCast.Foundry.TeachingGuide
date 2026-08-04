@@ -105,6 +105,17 @@ else
                             @asset.CreatedAtUtc.ToString("MMM d, yyyy")
                         </span>
                     </div>
+
+                    @if (IsArtwork(asset))
+                    {
+                        <div class="mt-3">
+                            <a class="btn btn-sm
+                                btn-outline-primary"
+                               href="@($"/media/{asset.Id:D}/artwork")">
+                                Analyze artwork
+                            </a>
+                        </div>
+                    }
                 </div>
             </article>
         }
@@ -197,4 +208,13 @@ else
         bytes < 1_048_576
             ? $"{bytes / 1024d:N1} KB"
             : $"{bytes / 1_048_576d:N1} MB";
+
+    private static bool IsArtwork(
+      MediaAssetSummary asset) =>
+        asset.ContentType.Equals(
+        "image/png",
+      StringComparison.OrdinalIgnoreCase) ||
+        asset.ContentType.Equals(
+        "image/jpeg",
+      StringComparison.OrdinalIgnoreCase);
 }

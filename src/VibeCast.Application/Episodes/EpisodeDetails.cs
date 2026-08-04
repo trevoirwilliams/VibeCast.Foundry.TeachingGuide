@@ -1,3 +1,4 @@
+using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 
 namespace VibeCast.Application.Episodes;
@@ -14,4 +15,5 @@ public sealed record EpisodeDetails(
     EpisodeStatus Status,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    EpisodePlanningResult? AcceptedPlan);
+    EpisodePlanningResult? AcceptedPlan,
+    IReadOnlyList<MediaAssetSummary> MediaAssets);

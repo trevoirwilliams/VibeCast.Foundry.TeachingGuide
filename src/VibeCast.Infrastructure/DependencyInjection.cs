@@ -54,6 +54,10 @@ public static class DependencyInjection
         services.AddSingleton<MediaUploadValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>>(sp =>
             sp.GetRequiredService<MediaUploadValidator>());
+        services.AddSingleton<ArtworkAnalysisValidator>();
+        services.AddSingleton<IValidator<ArtworkAnalysis>>(
+            serviceProvider => serviceProvider.GetRequiredService<ArtworkAnalysisValidator>());
+
         services.AddSingleton<IValidator<EpisodePlan>, EpisodePlanValidator>();
         services.AddSingleton<IValidator<EpisodeFormatGuidanceValidationRequest>, EpisodeFormatGuidanceValidator>();
 
@@ -140,6 +144,8 @@ public static class DependencyInjection
             IEpisodePlanningService,
             FoundryEpisodePlanningWithToolService>(
             EpisodePlanningServiceKeys.WithTools);
+
+        services.AddScoped<IArtworkAnalysisService, FoundryArtworkAnalysisService>();
 
         return services;
     }
