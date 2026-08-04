@@ -251,7 +251,7 @@
                 exception,
                 "The selected media exceeded the upload limit or the stream ended unexpectedly.");
 
-            uploadError = "VibeCast could not read the selected file. Confirm that it is no larger than 25 MB.";
+            uploadError = exception.Message;
         }
         catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
         {
