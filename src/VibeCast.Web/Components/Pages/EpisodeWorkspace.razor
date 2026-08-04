@@ -8,6 +8,7 @@
 @using VibeCast.Application.Media
 @using VibeCast.Application.Validation
 @using VibeCast.Domain.Episodes
+@using VibeCast.Domain.Media
 @using VibeCast.Infrastructure.AI
 @inject IEpisodeService EpisodeService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -349,8 +350,8 @@ else if (episode is not null)
                     @foreach (MediaAssetSummary asset in episode.MediaAssets)
                     {
                         <article class="media-tile">
-                            <div class="media-preview @GetPreviewClass(asset)">
-                                <span>@GetTypeCode(asset)</span>
+                            <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
+                                <span>@MediaAssetHelpers.GetTypeCode(asset.ContentType)</span>
                             </div>
 
                             <div class="media-copy">
@@ -363,11 +364,11 @@ else if (episode is not null)
                                 </div>
 
                                 <small>
-                                    @asset.ContentType · @FormatSize(asset.SizeBytes)
+                                    @asset.ContentType · @MediaAssetHelpers.FormatSize(asset.SizeBytes)
                                 </small>
 
                                 <p>
-                                    @GetMediaSummary(asset)
+                                    @MediaAssetHelpers.GetMediaSummary(asset.ContentType)
                                 </p>
 
                                 <div class="media-meta">
@@ -386,7 +387,7 @@ else if (episode is not null)
                                         Open file
                                     </a>
 
-                                    @if (IsArtwork(asset))
+                                    @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
                                     {
                                         <a class="btn btn-sm btn-outline-secondary"
                                            href="@($"/media/{asset.Id:D}/artwork")">
@@ -398,7 +399,7 @@ else if (episode is not null)
                         </article>
                     }
 
-                    
+
                 </div>
             }
         }
@@ -616,58 +617,6 @@ else if (episode is not null)
                    "MMMM d, yyyy",
                    CultureInfo.InvariantCulture)
                ?? "Not scheduled";
-    }
-
-    private static string FormatSize(long bytes) =>
-        bytes < 1_048_576
-            ? $"{bytes / 1024d:N1} KB"
-            : $"{bytes / 1_048_576d:N1} MB";
-
-    private static string GetTypeCode(MediaAssetSummary asset)
-    {
-        string contentType = asset.ContentType.Trim().ToLowerInvariant();
-
-        return contentType switch
-        {
-            "image/png" or "image/jpeg" => "IM",
-            "audio/wav" or "audio/mpeg" or "audio/mp4" => "AU",
-            "video/mp4" => "VI",
-            "text/plain" => "TXT",
-            "application/pdf" => "PDF",
-            _ => "DOC"
-        };
-    }
-
-    private static string GetPreviewClass(MediaAssetSummary asset)
-    {
-        string contentType = asset.ContentType.Trim().ToLowerInvariant();
-
-        return contentType switch
-        {
-            "image/png" or "image/jpeg" => "preview-image",
-            "audio/wav" or "audio/mpeg" or "audio/mp4" => "preview-audio",
-            "video/mp4" => "preview-video",
-            _ => "preview-document"
-        };
-    }
-
-    private static bool IsArtwork(MediaAssetSummary asset) =>
-        asset.ContentType.Equals("image/png", StringComparison.OrdinalIgnoreCase) ||
-        asset.ContentType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase);
-
-    private static string GetMediaSummary(MediaAssetSummary asset)
-    {
-        string contentType = asset.ContentType.Trim().ToLowerInvariant();
-
-        return contentType switch
-        {
-            "image/png" or "image/jpeg" => "Artwork or cover image ready for review.",
-            "audio/wav" or "audio/mpeg" or "audio/mp4" => "Audio source ready for transcription.",
-            "video/mp4" => "Video source ready for extraction.",
-            "application/pdf" => "Supporting document attached for planning.",
-            "text/plain" => "Text reference attached for the episode.",
-            _ => "Supporting media attached for this episode."
-        };
     }
 
     private static string GetStatusLabel(EpisodeStatus status)

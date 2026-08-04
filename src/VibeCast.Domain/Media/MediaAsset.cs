@@ -48,7 +48,7 @@ public sealed class MediaAsset : Entity
         string? visibleText,
         string promptVersion)
     {
-        if (!IsSupportedArtwork())
+        if (!MediaAssetHelpers.IsSupportedArtwork(ContentType))
         {
             throw new InvalidOperationException("Only PNG and JPEG assets can receive artwork descriptions.");
         }
@@ -73,7 +73,7 @@ public sealed class MediaAsset : Entity
 
         ArtworkPromptVersion = promptVersion.Trim();
         ArtworkAnalyzedAtUtc = DateTimeOffset.UtcNow;
-        
+
         MarkUpdated();
     }
 
@@ -98,14 +98,6 @@ public sealed class MediaAsset : Entity
 
         MarkReady();
     }
-
-    private bool IsSupportedArtwork() =>
-        ContentType.Equals(
-            "image/png",
-            StringComparison.OrdinalIgnoreCase) ||
-        ContentType.Equals(
-            "image/jpeg",
-            StringComparison.OrdinalIgnoreCase);
 
     public void MarkProcessing()
     {

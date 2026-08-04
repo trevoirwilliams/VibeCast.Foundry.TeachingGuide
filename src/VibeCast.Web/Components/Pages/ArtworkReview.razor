@@ -3,6 +3,7 @@
 @implements IDisposable
 @using System.Security.Claims
 @using VibeCast.Application.Media
+@using VibeCast.Domain.Media
 @inject IMediaAssetService MediaAssetService
 @inject IArtworkAnalysisService ArtworkAnalysisService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -65,7 +66,7 @@ else
 
                     <small>
                         @workspace.ContentType
-                        · @FormatSize(workspace.SizeBytes)
+                        · @MediaAssetHelpers.FormatSize(workspace.SizeBytes)
                     </small>
                 </div>
 
@@ -490,12 +491,6 @@ else
             isAccepting = false;
         }
     }
-
-    private static string FormatSize(
-        long bytes) =>
-        bytes < 1_048_576
-            ? $"{bytes / 1024d:N1} KB"
-            : $"{bytes / 1_048_576d:N1} MB";
 
     public void Dispose()
     {

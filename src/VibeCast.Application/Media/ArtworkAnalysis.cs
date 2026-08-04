@@ -85,16 +85,12 @@ public sealed class ArtworkAnalysisValidator : IValidator<ArtworkAnalysis>
                 failure.ErrorMessage);
         }
 
-        if (string.IsNullOrWhiteSpace(
-                instance.VisualSummary))
+        if (string.IsNullOrWhiteSpace(instance.VisualSummary))
         {
-            result.Add(
-                nameof(instance.VisualSummary),
+            result.Add(nameof(instance.VisualSummary),
                 "A visual summary is required.");
         }
-        else if (
-            instance.VisualSummary.Trim().Length >
-            MaximumSummaryLength)
+        else if ( instance.VisualSummary.Trim().Length > MaximumSummaryLength)
         {
             result.Add(
                 nameof(instance.VisualSummary),
@@ -102,8 +98,7 @@ public sealed class ArtworkAnalysisValidator : IValidator<ArtworkAnalysis>
                 $"{MaximumSummaryLength} characters.");
         }
 
-        if ((instance.VisibleText?.Trim().Length ?? 0) >
-            MaximumVisibleTextLength)
+        if ((instance.VisibleText?.Trim().Length ?? 0) > MaximumVisibleTextLength)
         {
             result.Add(
                 nameof(instance.VisibleText),
