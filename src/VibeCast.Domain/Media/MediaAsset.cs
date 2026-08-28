@@ -46,6 +46,14 @@ public sealed class MediaAsset : Entity
 
     public bool IsGenerated => GeneratedAtUtc.HasValue;
 
+    public string? TranscriptText { get; private set; }
+
+    public string? TranscriptionLocale { get; private set; }
+
+    public DateTimeOffset? TranscribedAtUtc { get; private set; }
+
+    public bool HasTranscript => !string.IsNullOrWhiteSpace(TranscriptText);
+
     public static MediaAsset Create(Guid? episodeId, string ownerId, string originalFileName, string storageKey, string contentType, long sizeBytes) =>
         new(episodeId, ownerId, originalFileName, storageKey, contentType, sizeBytes);
 
@@ -142,6 +150,52 @@ public sealed class MediaAsset : Entity
         ArtworkAcceptedAtUtc = DateTimeOffset.UtcNow;
 
         MarkReady();
+    }
+
+    public void SaveTranscript(
+        string transcriptText,
+        string locale,
+        DateTimeOffset transcribedAtUtc)
+    {
+        if (!MediaAssetHelpers.IsAudio(ContentType))
+        {
+            throw new InvalidOperationException(
+                "Only audio assets can receive transcripts.");
+        }
+
+        if (Status != MediaAssetStatus.Validated &&
+            Status != MediaAssetStatus.Ready)
+        {
+            throw new InvalidOperationException(
+                "Only validated audio can be transcribed.");
+        }
+
+        if (string.IsNullOrWhiteSpace(transcriptText))
+        {
+            throw new ArgumentException(
+                "Transcript text is required.",
+                nameof(transcriptText));
+        }
+
+        if (string.IsNullOrWhiteSpace(locale))
+        {
+            throw new ArgumentException(
+                "The transcription locale is required.",
+                nameof(locale));
+        }
+
+        if (transcribedAtUtc == default)
+        {
+            throw new ArgumentException(
+                "The transcription timestamp is required.",
+                nameof(transcribedAtUtc));
+        }
+
+        TranscriptText = transcriptText.Trim();
+        TranscriptionLocale = locale.Trim();
+        TranscribedAtUtc = transcribedAtUtc;
+
+        MarkUpdated();
     }
 
     public void MarkProcessing()

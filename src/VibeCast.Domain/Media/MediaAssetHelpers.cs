@@ -54,6 +54,12 @@ public static class MediaAssetHelpers
             ? $"{bytes / 1024d:N1} KB"
             : $"{bytes / 1_048_576d:N1} MB";
 
+    public static bool IsAudio(string contentType) =>
+    NormalizeContentType(contentType) is
+        "audio/wav" or
+        "audio/mpeg" or
+        "audio/mp4";
+
     private static bool IsImageContentType(string contentType) => NormalizeContentType(contentType) is "image/png" or "image/jpeg";
 
     private static string NormalizeContentType(string contentType) => contentType?.Trim().ToLowerInvariant() ?? string.Empty;

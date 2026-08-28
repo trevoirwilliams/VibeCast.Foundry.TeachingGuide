@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using Azure.AI.OpenAI;
+using Azure.AI.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,11 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<SpeechOptions>()
+            .Bind(configuration.GetSection(SpeechOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
@@ -65,7 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IEpisodeFormatPolicyProvider, EfEpisodeFormatPolicyProvider>();
         services.AddScoped<IMediaAssetService, EfMediaAssetService>();
 
-        services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
+        IServiceCollection serviceCollection = services.AddSingleton(serviceProvider =>
         {
             FoundryOptions options = serviceProvider
                 .GetRequiredService<IOptions<FoundryOptions>>()
@@ -146,7 +152,19 @@ public static class DependencyInjection
                 .GetImageClient(options.ImageModelDeployment)
                 .AsIImageGenerator();
         });
-        #pragma warning restore MEAI001
+#pragma warning restore MEAI001
+
+        services.AddSingleton<TranscriptionClient>(
+        serviceProvider =>
+        {
+            SpeechOptions options = serviceProvider
+                .GetRequiredService<IOptions<SpeechOptions>>()
+                .Value;
+
+            return new TranscriptionClient(
+                new Uri(options.Endpoint, UriKind.Absolute),
+                new ApiKeyCredential(options.ApiKey));
+        });
         services.AddScoped<
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
@@ -163,6 +181,7 @@ public static class DependencyInjection
 
         services.AddScoped<IArtworkAnalysisService, FoundryArtworkAnalysisService>();
         services.AddScoped<IEpisodeArtworkGenerationService, FoundryEpisodeArtworkGenerationService>();
+        services.AddScoped<IEpisodeTranscriptionService, FoundryEpisodeTranscriptionService>();
 
         return services;
     }

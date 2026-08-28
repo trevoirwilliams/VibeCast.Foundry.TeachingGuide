@@ -100,6 +100,11 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.GenerationPromptVersion)
                 .HasMaxLength(80);
 
+            entity.Property(x => x.TranscriptText);
+
+            entity.Property(x => x.TranscriptionLocale)
+                .HasMaxLength(20);
+
             entity.HasIndex(x => x.StorageKey).IsUnique();
         });
 

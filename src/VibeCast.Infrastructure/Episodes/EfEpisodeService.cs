@@ -100,6 +100,26 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
             .OrderByDescending(asset => asset.CreatedAtUtc)
             .ToList();
 
+        EpisodeTranscript? transcript =
+            await dbContext.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.EpisodeId == episodeId &&
+                    asset.TranscribedAtUtc != null &&
+                    asset.TranscriptText != null)
+                .OrderByDescending(asset =>
+                    asset.TranscribedAtUtc)
+                .Select(asset =>
+                    new EpisodeTranscript(
+                        asset.Id,
+                        episodeId,
+                        asset.OriginalFileName,
+                        asset.TranscriptText!,
+                        asset.TranscriptionLocale!,
+                        asset.TranscribedAtUtc!.Value))
+                .FirstOrDefaultAsync(cancellationToken);
+
         return new EpisodeDetails(
             Id: episode.Id,
             Title: episode.Title,
@@ -113,6 +133,7 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
             CreatedAtUtc: episode.CreatedAtUtc,
             UpdatedAtUtc: episode.UpdatedAtUtc,
             AcceptedPlan: acceptedPlan,
+            Transcript: transcript,
             MediaAssets: orderedMediaAssets);
     }
 
