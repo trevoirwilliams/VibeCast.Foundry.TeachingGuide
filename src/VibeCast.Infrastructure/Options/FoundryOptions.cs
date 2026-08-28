@@ -13,6 +13,9 @@ public sealed class FoundryOptions
     [Required]
     public string ChatModelDeployment { get; init; } = string.Empty;
 
+    [Required]
+    public string ImageModelDeployment { get; init; } = string.Empty;
+
     public string? ApiKey { get; init; } = string.Empty;
 
     [Range(0, 5)]

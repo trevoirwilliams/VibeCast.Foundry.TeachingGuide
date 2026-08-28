@@ -40,8 +40,53 @@ public sealed class MediaAsset : Entity
     public DateTimeOffset? ArtworkAnalyzedAtUtc { get; private set; }
     public DateTimeOffset? ArtworkAcceptedAtUtc { get; private set; }
 
+    public string? GenerationModelDeployment { get; private set; }
+    public string? GenerationPromptVersion { get; private set; }
+    public DateTimeOffset? GeneratedAtUtc { get; private set; }
+
+    public bool IsGenerated => GeneratedAtUtc.HasValue;
+
     public static MediaAsset Create(Guid? episodeId, string ownerId, string originalFileName, string storageKey, string contentType, long sizeBytes) =>
         new(episodeId, ownerId, originalFileName, storageKey, contentType, sizeBytes);
+
+    public void RecordGeneration(string modelDeployment,
+        string promptVersion,
+        DateTimeOffset generatedAtUtc)
+    {
+        if (Status != MediaAssetStatus.Validated)
+        {
+            throw new InvalidOperationException(
+                "Generation metadata can only be recorded " +
+                "for validated media.");
+        }
+
+        if (string.IsNullOrWhiteSpace(modelDeployment))
+        {
+            throw new ArgumentException(
+                "The generation model deployment is required.",
+                nameof(modelDeployment));
+        }
+
+        if (string.IsNullOrWhiteSpace(promptVersion))
+        {
+            throw new ArgumentException(
+                "The generation prompt version is required.",
+                nameof(promptVersion));
+        }
+
+        if (generatedAtUtc == default)
+        {
+            throw new ArgumentException(
+                "The generation timestamp is required.",
+                nameof(generatedAtUtc));
+        }
+
+        GenerationModelDeployment = modelDeployment.Trim();
+        GenerationPromptVersion = promptVersion.Trim();
+        GeneratedAtUtc = generatedAtUtc;
+
+        MarkUpdated();
+    }
 
     public void SaveArtworkProposal(string altText,
         string visualSummary,

@@ -94,6 +94,12 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.ArtworkPromptVersion)
                 .HasMaxLength(80);
 
+            entity.Property(x => x.GenerationModelDeployment)
+                .HasMaxLength(120);
+
+            entity.Property(x => x.GenerationPromptVersion)
+                .HasMaxLength(80);
+
             entity.HasIndex(x => x.StorageKey).IsUnique();
         });
 

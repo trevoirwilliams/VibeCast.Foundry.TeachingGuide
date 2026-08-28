@@ -93,28 +93,28 @@ public static class DependencyInjection
 
         services.AddSingleton<IChatClient>(serviceProvider =>
         {
-        FoundryOptions options = serviceProvider
-            .GetRequiredService<IOptions<FoundryOptions>>()
-            .Value;
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
 
-        AzureOpenAIClient azureOpenAIClient =
-            serviceProvider.GetRequiredService<AzureOpenAIClient>();
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
-        ILogger<ChatResponseLoggingClient> logger =
-            serviceProvider.GetRequiredService<
-                ILogger<ChatResponseLoggingClient>>();
+            ILogger<ChatResponseLoggingClient> logger =
+                serviceProvider.GetRequiredService<
+                    ILogger<ChatResponseLoggingClient>>();
 
-        ILoggerFactory loggerFactory =
-           serviceProvider.GetRequiredService<
-               ILoggerFactory>();
+            ILoggerFactory loggerFactory =
+               serviceProvider.GetRequiredService<
+                   ILoggerFactory>();
 
-        IChatClient providerClient = azureOpenAIClient
-           .GetChatClient(options.ChatModelDeployment)
-           .AsIChatClient();
+            IChatClient providerClient = azureOpenAIClient
+               .GetChatClient(options.ChatModelDeployment)
+               .AsIChatClient();
 
-        IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
-            providerClient,
-            logger);
+            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
+                providerClient,
+                logger);
 
             return new ChatClientBuilder(monitoredProviderClient)
             .UseFunctionInvocation(
@@ -131,6 +131,22 @@ public static class DependencyInjection
             .Build(serviceProvider);
         });
 
+        #pragma warning disable MEAI001
+        services.AddSingleton<IImageGenerator>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
+
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider
+                    .GetRequiredService<AzureOpenAIClient>();
+
+            return azureOpenAIClient
+                .GetImageClient(options.ImageModelDeployment)
+                .AsIImageGenerator();
+        });
+        #pragma warning restore MEAI001
         services.AddScoped<
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
@@ -146,6 +162,7 @@ public static class DependencyInjection
             EpisodePlanningServiceKeys.WithTools);
 
         services.AddScoped<IArtworkAnalysisService, FoundryArtworkAnalysisService>();
+        services.AddScoped<IEpisodeArtworkGenerationService, FoundryEpisodeArtworkGenerationService>();
 
         return services;
     }

@@ -11,6 +11,7 @@
 @using VibeCast.Domain.Media
 @using VibeCast.Infrastructure.AI
 @inject IEpisodeService EpisodeService
+@inject IEpisodeArtworkGenerationService EpisodeArtworkGenerationService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<EpisodeWorkspace> Logger
 
@@ -322,9 +323,45 @@ else if (episode is not null)
                     </p>
                 </div>
 
-                <a class="btn btn-sm btn-outline-primary" href="@($"/media/upload?episodeId={episode?.Id:D}")">
-                    Add media
-                </a>
+                @if (episode.AcceptedPlan is null)
+                {
+                    <div class="alert alert-warning" role="status">
+                        Save an accepted episode plan before generating
+                        promotional artwork.
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(
+                        artworkGenerationError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @artworkGenerationError
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(
+                        artworkGenerationMessage))
+                {
+                    <div class="alert alert-success" role="status">
+                        @artworkGenerationMessage
+                    </div>
+                }
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-sm btn-primary"
+                            type="button"
+                            disabled="@(isGeneratingArtwork || episode.AcceptedPlan is null)"
+                            @onclick="GeneratePromotionalArtworkAsync">
+                        @(isGeneratingArtwork
+                            ? "Generating artwork..."
+                            : "Generate promotional artwork")
+                    </button>
+
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="@($"/media/upload?episodeId={episode.Id:D}")">
+                        Add media
+                    </a>
+                </div>
             </div>
 
             @if (episode.MediaAssets.Count == 0)
@@ -350,9 +387,23 @@ else if (episode is not null)
                     @foreach (MediaAssetSummary asset in episode.MediaAssets)
                     {
                         <article class="media-tile">
-                            <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
-                                <span>@MediaAssetHelpers.GetTypeCode(asset.ContentType)</span>
-                            </div>
+                            @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
+                            {
+                                <div class="media-preview preview-image">
+                                    <img src="@($"/media/{asset.Id:D}/content")"
+                                         alt=""
+                                         loading="lazy" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
+                                    <span>
+                                        @MediaAssetHelpers.GetTypeCode(
+                                            asset.ContentType)
+                                    </span>
+                                </div>
+                            }
 
                             <div class="media-copy">
                                 <div class="d-flex justify-content-between gap-2">
@@ -535,6 +586,7 @@ else if (episode is not null)
     private string? planError;
     private bool isGeneratingPlan;
     private CancellationTokenSource? planningCancellation;
+    private CancellationTokenSource? artworkGenerationCancellation;
     private IReadOnlyList<ValidationFailure> planValidationFailures = [];
     private string? currentOwnerId;
 
@@ -545,6 +597,9 @@ else if (episode is not null)
     private string? planSaveMessage;
 
     private string? planSaveError;
+    private bool isGeneratingArtwork;
+    private string? artworkGenerationError;
+    private string? artworkGenerationMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -735,17 +790,6 @@ else if (episode is not null)
         planningCancellation?.Cancel();
     }
 
-    public void Dispose()
-    {
-        CancellationTokenSource? cancellation =
-            Interlocked.Exchange(
-                ref planningCancellation,
-                null);
-
-        cancellation?.Cancel();
-        cancellation?.Dispose();
-    }
-
     private async Task SaveAcceptedPlanAsync()
     {
         if (episode is null || planningResult is null || string.IsNullOrWhiteSpace(currentOwnerId) ||
@@ -785,5 +829,93 @@ else if (episode is not null)
         {
             isSavingPlan = false;
         }
+    }
+
+    private async Task GeneratePromotionalArtworkAsync()
+    {
+        if (episode is null || episode.AcceptedPlan is null || string.IsNullOrWhiteSpace(currentOwnerId)
+          || isGeneratingArtwork)
+        {
+            return;
+        }
+
+        selectedTab = "Media";
+        artworkGenerationMessage = null;
+        artworkGenerationError = null;
+
+        artworkGenerationCancellation?.Cancel();
+        artworkGenerationCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromSeconds(90));
+        artworkGenerationCancellation = currentCancellation;
+
+        isGeneratingArtwork = true;
+
+        try
+        {
+            await EpisodeArtworkGenerationService
+                .GenerateAsync(
+                    episode.Id,
+                    currentOwnerId,
+                    currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Media";
+
+            artworkGenerationMessage =
+                "Promotional artwork was generated and " +
+                "added to this episode.";
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            artworkGenerationError =
+                "Artwork generation was cancelled or exceeded " +
+                "the 90-second time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to generate promotional artwork " +
+                "for episode {EpisodeId}.",
+                episode.Id);
+
+            artworkGenerationError =
+                "VibeCast could not generate promotional artwork. " +
+                "Verify the image model configuration and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    artworkGenerationCancellation,
+                    currentCancellation))
+            {
+                artworkGenerationCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+            isGeneratingArtwork = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        CancellationTokenSource? planning =
+            Interlocked.Exchange(
+                ref planningCancellation,
+                null);
+
+        planning?.Cancel();
+        planning?.Dispose();
+
+        CancellationTokenSource? artwork =
+            Interlocked.Exchange(
+                ref artworkGenerationCancellation,
+                null);
+
+        artwork?.Cancel();
+        artwork?.Dispose();
     }
 }

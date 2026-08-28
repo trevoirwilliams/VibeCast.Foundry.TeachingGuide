@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VibeCast.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using VibeCast.Infrastructure.Data;
 namespace VibeCast.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(VibeCastDbContext))]
-    partial class VibeCastDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828155032_AddArtworkGenerationMetadata")]
+    partial class AddArtworkGenerationMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -371,17 +374,6 @@ namespace VibeCast.Infrastructure.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("EpisodeId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("GeneratedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("GenerationModelDeployment")
-                        .HasMaxLength(120)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("GenerationPromptVersion")
-                        .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("OriginalFileName")

@@ -195,9 +195,6 @@ public class FoundryEpisodePlanningWithToolService(
 
         AIFunction formatGuidanceTool =
             AIFunctionFactory.Create(
-                (Func<
-                    CancellationToken,
-                    Task<EpisodeFormatGuidance>>)
                 GetEpisodeFormatGuidanceAsync,
                 name: EpisodeFormatGuidanceTool.Name,
                 description:
