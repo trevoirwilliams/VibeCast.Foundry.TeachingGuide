@@ -71,7 +71,6 @@ public class FoundryEpisodeArtworkGenerationService(
                     Count = 1,
                     ImageSize = new Size(1536, 1024),
                     MediaType = ContentType,
-                    ResponseFormat = ImageGenerationResponseFormat.Data
                 },
                 timeout.Token);
 
