@@ -12,8 +12,7 @@ namespace VibeCast.Infrastructure.AI;
 public class FoundryEpisodePlanningWithToolService(
     IChatClient chatClient,
     IValidator<EpisodePlan> planValidator,
-    IValidator<EpisodeFormatGuidanceValidationRequest>
-        formatGuidanceValidator,
+    IValidator<EpisodeFormatGuidanceValidationRequest> formatGuidanceValidator,
     IEpisodeFormatPolicyProvider formatPolicyProvider,
     ILogger<FoundryEpisodePlanningWithToolService> logger)
     : CommonEpisodePlanningMethods, IEpisodePlanningService

@@ -7,6 +7,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
+using VibeCast.Domain.Media;
 
 namespace VibeCast.Infrastructure.AI;
 
@@ -155,7 +156,7 @@ public class FoundryArtworkAnalysisService(
                 nameof(request));
         }
 
-        if (!IsSupportedImage(request.ContentType))
+        if (!MediaAssetHelpers.IsSupportedArtwork(request.ContentType))
         {
             throw new ArgumentException(
                 "Only PNG and JPEG artwork can be " +
@@ -178,13 +179,4 @@ public class FoundryArtworkAnalysisService(
                 nameof(content));
         }
     }
-
-    private static bool IsSupportedImage(
-        string contentType) =>
-        contentType.Equals(
-            "image/png",
-            StringComparison.OrdinalIgnoreCase) ||
-        contentType.Equals(
-            "image/jpeg",
-            StringComparison.OrdinalIgnoreCase);
 }

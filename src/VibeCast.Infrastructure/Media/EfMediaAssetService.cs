@@ -143,7 +143,7 @@ public sealed class EfMediaAssetService(
                         candidate.OwnerId == ownerId,
                     cancellationToken);
 
-        if (asset is null || !IsSupportedArtwork(asset.ContentType))
+        if (asset is null || !MediaAssetHelpers.IsSupportedArtwork(asset.ContentType))
         {
             return null;
         }
@@ -175,7 +175,7 @@ public sealed class EfMediaAssetService(
                 })
                 .SingleOrDefaultAsync(cancellationToken);
 
-        if (asset is null || !IsSupportedArtwork(asset.ContentType))
+        if (asset is null || !MediaAssetHelpers.IsSupportedArtwork(asset.ContentType))
         {
             return null;
         }
@@ -287,14 +287,6 @@ public sealed class EfMediaAssetService(
             throw new KeyNotFoundException(
                 "The selected media asset was not found.");
     }
-
-    private static bool IsSupportedArtwork(string contentType) =>
-    contentType.Equals(
-        "image/png",
-        StringComparison.OrdinalIgnoreCase) ||
-    contentType.Equals(
-        "image/jpeg",
-        StringComparison.OrdinalIgnoreCase);
 
     private static async Task<ArtworkWorkspace>CreateArtworkWorkspaceAsync(VibeCastDbContext db, MediaAsset asset, string ownerId, CancellationToken cancellationToken)
     {
