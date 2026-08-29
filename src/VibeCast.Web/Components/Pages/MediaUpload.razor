@@ -121,14 +121,24 @@
                     and marked <strong>@uploadResult.Asset.Status</strong>.
                 </div>
 
-                <a class="alert-link" href="/media">
-                    Open the Media Library
-                </a>
+                @if (EpisodeId is Guid attachedEpisodeId)
+                {
+                    <a class="alert-link"
+                       href="@($"/episodes/{attachedEpisodeId:D}")">
+                        Return to the episode workspace
+                    </a>
+                }
+                else
+                {
+                    <a class="alert-link" href="/media">
+                        Open the Media Library
+                    </a>
+                }
             </div>
         }
 
         <div class="form-actions">
-            <a class="btn btn-outline-secondary" href="/media">
+            <a class="btn btn-outline-secondary" href="@GetReturnUrl()">
                 Cancel
             </a>
 
@@ -313,4 +323,9 @@
         cancellation?.Cancel();
         cancellation?.Dispose();
     }
+
+    private string GetReturnUrl() =>
+      EpisodeId is Guid episodeId
+          ? $"/episodes/{episodeId:D}"
+          : "/media";
 }

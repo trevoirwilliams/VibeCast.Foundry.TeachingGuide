@@ -135,13 +135,12 @@ app.MapGet("/media/{mediaAssetId:guid}/content",
             return Results.Unauthorized();
         }
 
-        ArtworkContent? artwork =
-            await mediaAssetService.OpenArtworkAsync(
-                mediaAssetId,
-                ownerId,
-                cancellationToken);
+        MediaContent? media = await mediaAssetService.OpenMediaAsync(
+            mediaAssetId,
+            ownerId,
+            cancellationToken);
 
-        if (artwork is null)
+        if (media is null)
         {
             return Results.NotFound();
         }
@@ -150,8 +149,9 @@ app.MapGet("/media/{mediaAssetId:guid}/content",
             "private, no-store";
 
         return Results.Stream(
-            artwork.Content,
-            artwork.ContentType);
+            media.Content,
+            contentType: media.ContentType,
+            enableRangeProcessing: true);
     }).RequireAuthorization();
 
 app.MapRazorComponents<App>()

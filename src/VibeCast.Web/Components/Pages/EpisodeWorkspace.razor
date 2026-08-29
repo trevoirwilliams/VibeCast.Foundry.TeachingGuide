@@ -271,46 +271,264 @@ else if (episode is not null)
         {
             <div class="split-panel">
                 <div>
-                    <h2>Transcript workspace</h2>
-                    <p>
-                        Review source audio, speaker segments,
-                        timestamps, and corrected text.
-                    </p>
-
-                    <div class="empty-state compact">
-                        <div class="empty-icon">Aa</div>
+                    <div class="section-heading">
                         <div>
-                            <strong>No transcript yet</strong>
+                            <h2>Episode transcript</h2>
                             <p>
-                                Speech processing is implemented in
-                                the multimodal section.
+                                Select an attached recording, preview the audio,
+                                and transcribe it with Microsoft Foundry Speech.
                             </p>
                         </div>
+
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="@($"/media/upload?episodeId={episode.Id:D}")">
+                            Add recording
+                        </a>
                     </div>
+
+                    @if (!string.IsNullOrWhiteSpace(transcriptionError))
+                    {
+                        <div class="alert alert-danger"
+                             role="alert">
+                            @transcriptionError
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(transcriptionMessage))
+                    {
+                        <div class="alert alert-success"
+                             role="status">
+                            @transcriptionMessage
+                        </div>
+                    }
+
+                    @if (AudioAssets.Count == 0)
+                    {
+                        <div class="empty-state compact">
+                            <div class="empty-icon">AU</div>
+
+                            <div>
+                                <strong>No episode recording attached</strong>
+
+                                <p>
+                                    Add an MP3, WAV, or M4A recording
+                                    before starting transcription.
+                                </p>
+
+                                <a class="btn btn-sm btn-primary mt-2"
+                                   href="@($"/media/upload?episodeId={episode.Id:D}")">
+                                    Add episode recording
+                                </a>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="transcript-source-card">
+                            <label class="form-label"
+                                   for="transcription-source">
+                                Source recording
+                            </label>
+
+                            <select id="transcription-source"
+                                    class="form-select"
+                                    value="@selectedTranscriptionMediaAssetId"
+                                    disabled="@isTranscribing"
+                                    @onchange="SelectTranscriptionSource">
+                                @foreach (MediaAssetSummary asset in AudioAssets)
+                                {
+                                    <option value="@asset.Id">
+                                        @asset.OriginalFileName
+                                    </option>
+                                }
+                            </select>
+                          
+                            @if (SelectedAudioAsset is not null)
+                            {
+                                <div class="audio-source-meta">
+                                    <span>
+                                        @SelectedAudioAsset.ContentType
+                                    </span>
+
+                                    <span>
+                                        @MediaAssetHelpers.FormatSize(
+                                            SelectedAudioAsset.SizeBytes)
+                                    </span>
+
+                                    <span>
+                                        @SelectedAudioAsset.Status
+                                    </span>
+                                </div>
+
+                                <audio class="episode-audio-player"
+                                       controls
+                                       preload="metadata">
+                                    <source src="@($"/media/{SelectedAudioAsset.Id:D}/content")"
+                                            type="@SelectedAudioAsset.ContentType" />
+
+                                    Your browser does not support audio playback.
+                                </audio>
+
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <button class="btn btn-primary"
+                                            type="button"
+                                            disabled="@isTranscribing"
+                                            @onclick="TranscribeSelectedRecordingAsync">
+                                        @(isTranscribing
+                                            ? "Transcribing recording..."
+                                            : "Transcribe recording")
+                                    </button>
+
+                                    @if (isTranscribing)
+                                    {
+                                        <button class="btn btn-outline-secondary"
+                                                type="button"
+                                                @onclick="CancelTranscription">
+                                            Stop transcription
+                                        </button>
+                                    }
+
+                                    <a class="btn btn-outline-secondary"
+                                       href="@($"/media/{SelectedAudioAsset.Id:D}/content")">
+                                        Open audio
+                                    </a>
+                                </div>
+                            }
+
+                            @if (isTranscribing)
+                            {
+                                <div class="empty-state compact mt-3">
+                                    <div class="empty-icon">…</div>
+
+                                    <div>
+                                        <strong>
+                                            Transcribing episode recording
+                                        </strong>
+
+                                        <p>
+                                            Microsoft Foundry Speech is processing the
+                                            selected audio and returning transcript text.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                            else if (episode.Transcript is not null)
+                            {
+                                <div class="transcript-result">
+                                    <div class="section-heading">
+                                        <div>
+                                            <h2>Persisted transcript</h2>
+
+                                            <p>
+                                                Transcript generated from
+                                                @episode.Transcript.SourceFileName.
+                                            </p>
+                                        </div>
+
+                                        <span class="status-badge badge-success">
+                                            Ready
+                                        </span>
+                                    </div>
+
+                                    <div class="transcript-meta">
+                                        <span>
+                                            <strong>Locale</strong>
+                                            @episode.Transcript.Locale
+                                        </span>
+
+                                        <span>
+                                            <strong>Generated</strong>
+                                            @episode.Transcript.TranscribedAtUtc.ToString(
+                                            "MMM d, yyyy h:mm tt",
+                                            CultureInfo.InvariantCulture)
+                                        </span>
+                                    </div>
+
+                                    <div class="transcript-text">
+                                        @episode.Transcript.Text
+                                    </div>
+                                </div>
+                            }
+                            else if (AudioAssets.Count > 0)
+                            {
+                                <div class="empty-state compact mt-3">
+                                    <div class="empty-icon">Aa</div>
+
+                                    <div>
+                                        <strong>No transcript yet</strong>
+
+                                        <p>
+                                            Select the episode recording and start
+                                            transcription.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <aside class="panel-muted">
+                            <h3>Transcription settings</h3>
+
+                            <label class="form-label">
+                                Episode language
+                            </label>
+
+                            <input class="form-control"
+                                   value="@episode.Language"
+                                   disabled />
+
+                            <small class="d-block mt-2 text-muted">
+                                VibeCast maps the episode language to the
+                                corresponding Speech locale before transcription.
+                            </small>
+
+                            <label class="form-label mt-4">
+                                Speaker identification
+                            </label>
+
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       disabled />
+
+                                <label class="form-check-label">
+                                    Detect speakers
+                                </label>
+                            </div>
+
+                            <small class="d-block mt-2 text-muted">
+                                Diarization is intentionally not enabled
+                                in this lesson.
+                            </small>
+
+                            @if (SelectedAudioAsset is not null)
+                            {
+                                <hr />
+
+                                <h3>Selected source</h3>
+
+                                <dl class="detail-grid single">
+                                    <dt>File</dt>
+                                    <dd>
+                                        @SelectedAudioAsset.OriginalFileName
+                                    </dd>
+
+                                    <dt>Type</dt>
+                                    <dd>
+                                        @SelectedAudioAsset.ContentType
+                                    </dd>
+
+                                    <dt>Size</dt>
+                                    <dd>
+                                        @MediaAssetHelpers.FormatSize(
+                                            SelectedAudioAsset.SizeBytes)
+                                    </dd>
+                                </dl>
+                            }
+                        </aside>
+                    }
+                    
                 </div>
-
-                <aside class="panel-muted">
-                    <h3>Transcript controls</h3>
-
-                    <label class="form-label">Language</label>
-                    <select class="form-select" disabled>
-                        <option>@episode.Language</option>
-                    </select>
-
-                    <label class="form-label mt-3">
-                        Speaker identification
-                    </label>
-
-                    <div class="form-check">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               disabled />
-
-                        <label class="form-check-label">
-                            Detect speakers
-                        </label>
-                    </div>
-                </aside>
             </div>
         }
         else if (selectedTab == "Media")
@@ -567,10 +785,10 @@ else if (episode is not null)
 
     [Inject(Key = EpisodePlanningServiceKeys.WithTools)]
     public IEpisodePlanningService EpisodePlanningService { get; set; } = default!;
-
+    
     private static readonly string[] tabs =
     [
-        "Overview",
+    "Overview",
         "AI Planner",
         "Transcript",
         "Media",
@@ -588,6 +806,7 @@ else if (episode is not null)
     private bool isGeneratingPlan;
     private CancellationTokenSource? planningCancellation;
     private CancellationTokenSource? artworkGenerationCancellation;
+    private CancellationTokenSource? transcriptionCancellation;
     private IReadOnlyList<ValidationFailure> planValidationFailures = [];
     private string? currentOwnerId;
 
@@ -601,6 +820,23 @@ else if (episode is not null)
     private bool isGeneratingArtwork;
     private string? artworkGenerationError;
     private string? artworkGenerationMessage;
+    private string? transcriptionMessage;
+    private string? transcriptionError;
+    private Guid? selectedTranscriptionMediaAssetId;
+    private bool isTranscribing;
+
+    private IReadOnlyList<MediaAssetSummary> AudioAssets =>
+    episode?.MediaAssets
+        .Where(asset =>
+            MediaAssetHelpers.IsAudio(asset.ContentType))
+        .ToArray()
+    ?? [];
+
+    private MediaAssetSummary? SelectedAudioAsset =>
+    episode?.MediaAssets
+        .FirstOrDefault(asset =>
+            asset.Id == selectedTranscriptionMediaAssetId &&
+            MediaAssetHelpers.IsAudio(asset.ContentType));
 
     protected override async Task OnParametersSetAsync()
     {
@@ -655,8 +891,36 @@ else if (episode is not null)
             planningResult = episode?.AcceptedPlan;
 
             planIsPersisted = planningResult is not null;
+
+            if (episode is not null)
+            {
+                IReadOnlyList<MediaAssetSummary> audioAssets =
+                    episode.MediaAssets
+                        .Where(asset =>
+                            MediaAssetHelpers.IsAudio(
+                                asset.ContentType))
+                        .ToArray();
+
+                bool currentSelectionIsValid =
+                    selectedTranscriptionMediaAssetId is Guid selectedId &&
+                    audioAssets.Any(asset =>
+                        asset.Id == selectedId);
+
+                if (!currentSelectionIsValid)
+                {
+                    Guid? transcriptSourceId =
+                        episode.Transcript?.MediaAssetId;
+
+                    selectedTranscriptionMediaAssetId =
+                        transcriptSourceId is Guid sourceId &&
+                        audioAssets.Any(asset =>
+                            asset.Id == sourceId)
+                            ? sourceId
+                            : audioAssets.FirstOrDefault()?.Id;
+                }
+            }
         }
-        catch
+        catch(Exception e)
         {
             loadError =
                 "VibeCast could not load the episode workspace.";
@@ -918,5 +1182,107 @@ else if (episode is not null)
 
         artwork?.Cancel();
         artwork?.Dispose();
+
+        CancellationTokenSource? transcription = Interlocked.Exchange(
+        ref transcriptionCancellation,
+        null);
+
+        transcription?.Cancel();
+        transcription?.Dispose();
+    }
+
+    private async Task TranscribeSelectedRecordingAsync()
+    {
+        if (episode is null || SelectedAudioAsset is null || string.IsNullOrWhiteSpace(currentOwnerId)
+          || isTranscribing)
+        {
+            return;
+        }
+
+
+        MediaAssetSummary source = SelectedAudioAsset;
+
+        selectedTab = "Transcript";
+
+        transcriptionError = null;
+        transcriptionMessage = null;
+
+        transcriptionCancellation?.Cancel();
+        transcriptionCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromMinutes(2));
+        transcriptionCancellation = currentCancellation;
+
+        isTranscribing = true;
+
+        try
+        {
+            await EpisodeTranscriptionService.TranscribeAsync(
+                    source.Id,
+                    currentOwnerId,
+                    currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Transcript";
+
+            selectedTranscriptionMediaAssetId = source.Id;
+
+            transcriptionMessage =
+                "The episode recording was transcribed " +
+                "and the transcript was saved.";
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            transcriptionError =
+                "Transcription was cancelled or exceeded " +
+                "the two-minute time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to transcribe media asset " +
+                "{MediaAssetId} for episode {EpisodeId}.",
+                source.Id,
+                episode.Id);
+
+            transcriptionError =
+                "VibeCast could not transcribe the selected " +
+                "recording. Verify the Speech configuration " +
+                "and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    transcriptionCancellation,
+                    currentCancellation))
+            {
+                transcriptionCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+
+            isTranscribing = false;
+        }
+    }
+
+    private void CancelTranscription()
+    {
+        transcriptionCancellation?.Cancel();
+    }
+
+    private void SelectTranscriptionSource(ChangeEventArgs args)
+    {
+        transcriptionMessage = null;
+        transcriptionError = null;
+
+        selectedTranscriptionMediaAssetId =
+            Guid.TryParse(
+                args.Value?.ToString(),
+                out Guid mediaAssetId)
+                ? mediaAssetId
+                : null;
     }
 }

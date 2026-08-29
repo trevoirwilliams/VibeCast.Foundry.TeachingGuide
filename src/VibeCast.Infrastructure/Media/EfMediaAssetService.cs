@@ -344,4 +344,56 @@ public sealed class EfMediaAssetService(
             asset.Status,
             asset.CreatedAtUtc);
 
+    public async Task<MediaContent?> OpenMediaAsync(
+        Guid mediaAssetId,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext db =
+            await dbContextFactory.CreateDbContextAsync(
+                cancellationToken);
+
+        var asset =
+            await db.MediaAssets
+                .AsNoTracking()
+                .Where(candidate =>
+                    candidate.Id == mediaAssetId &&
+                    candidate.OwnerId == ownerId)
+                .Select(candidate => new
+                {
+                    candidate.StorageKey,
+                    candidate.OriginalFileName,
+                    candidate.ContentType,
+                    candidate.Status
+                })
+                .SingleOrDefaultAsync(cancellationToken);
+
+        if (asset is null)
+        {
+            return null;
+        }
+
+        if (asset.Status is not
+            (MediaAssetStatus.Validated or MediaAssetStatus.Ready))
+        {
+            throw new InvalidOperationException(
+                "Only validated media can be opened.");
+        }
+
+        Stream content = await blobStorage.OpenReadAsync(
+                asset.StorageKey,
+                cancellationToken);
+
+        return new MediaContent(
+            Content: content,
+            ContentType: asset.ContentType,
+            OriginalFileName: asset.OriginalFileName);
+    }
 }

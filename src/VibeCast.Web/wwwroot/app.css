@@ -304,3 +304,58 @@ code { color: var(--vc-teal-dark); background: #edf3f4; padding: .1rem .3rem; bo
     line-height: 1.6;
     white-space: pre-wrap;
 }
+
+.transcript-source-card {
+    padding: 1rem;
+    border: 1px solid var(--vc-border);
+    border-radius: .75rem;
+    background: #fbfcfc;
+}
+
+.audio-source-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-top: .65rem;
+    color: var(--vc-muted);
+    font-size: .76rem;
+}
+
+.episode-audio-player {
+    display: block;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.transcript-result {
+    margin-top: 1.25rem;
+    padding: 1.1rem;
+    border: 1px solid var(--vc-border);
+    border-radius: .75rem;
+    background: var(--vc-surface);
+}
+
+.transcript-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding-bottom: .85rem;
+    color: var(--vc-muted);
+    font-size: .78rem;
+}
+
+.transcript-meta strong {
+    display: block;
+    color: var(--vc-ink);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.transcript-text {
+    padding-top: 1rem;
+    border-top: 1px solid var(--vc-border);
+    white-space: pre-wrap;
+    line-height: 1.7;
+    font-size: .92rem;
+}

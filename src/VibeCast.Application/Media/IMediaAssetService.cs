@@ -29,4 +29,9 @@ public interface IMediaAssetService
         string acceptedAltText,
         string ownerId,
         CancellationToken cancellationToken = default);
+
+    Task<MediaContent?> OpenMediaAsync(
+        Guid mediaAssetId,
+        string ownerId,
+        CancellationToken cancellationToken = default);
 }
