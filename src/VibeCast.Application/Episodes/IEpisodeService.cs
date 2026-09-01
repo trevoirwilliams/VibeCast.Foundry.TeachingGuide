@@ -6,6 +6,10 @@ namespace VibeCast.Application.Episodes;
 
 public interface IEpisodeService
 {
+    Task<IReadOnlyList<EpisodeSummary>> ListAsync(
+        string ownerId,
+        CancellationToken cancellationToken = default);
+
     Task<Guid> CreateAsync(
     CreateEpisodeRequest request,
     string ownerId,
