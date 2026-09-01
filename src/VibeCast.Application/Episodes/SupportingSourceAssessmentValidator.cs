@@ -20,8 +20,7 @@ public sealed class SupportingSourceAssessmentValidator
         SupportingSourceAssessment assessment =
             instance.Assessment;
 
-        if (string.IsNullOrWhiteSpace(assessment.Rationale) ||
-            assessment.Rationale.Trim().Length >
+        if (string.IsNullOrWhiteSpace(assessment.Rationale) || assessment.Rationale.Trim().Length >
             MaximumRationaleLength)
         {
             result.Add(
@@ -30,8 +29,7 @@ public sealed class SupportingSourceAssessmentValidator
                 $"{MaximumRationaleLength} characters is required.");
         }
 
-        if (assessment.Summary?.Trim().Length >
-            MaximumSummaryLength)
+        if (assessment.Summary?.Trim().Length > MaximumSummaryLength)
         {
             result.Add(
                 nameof(assessment.Summary),
@@ -51,8 +49,7 @@ public sealed class SupportingSourceAssessmentValidator
                 "relevant points are allowed.");
         }
 
-        if (relevantPoints.Any(
-                point => string.IsNullOrWhiteSpace(point) || point.Trim().Length > MaximumPointLength))
+        if (relevantPoints.Any(point => string.IsNullOrWhiteSpace(point) || point.Trim().Length > MaximumPointLength))
         {
             result.Add(
                 nameof(assessment.RelevantPoints),
@@ -84,10 +81,8 @@ public sealed class SupportingSourceAssessmentValidator
                 "accepted supporting evidence.");
         }
 
-        HashSet<string> allowedRequirements =
-            instance.AllowedEvidenceRequirements
-                .ToHashSet(
-                    StringComparer.OrdinalIgnoreCase);
+        HashSet<string> allowedRequirements = instance.AllowedEvidenceRequirements
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (string matchedRequirement in matchedRequirements)
         {

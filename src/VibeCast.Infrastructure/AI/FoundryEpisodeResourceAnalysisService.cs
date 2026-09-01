@@ -154,8 +154,7 @@ public class FoundryEpisodeResourceAnalysisService(
         string ownerId,
         CancellationToken cancellationToken)
     {
-        await using VibeCastDbContext dbContext = await dbContextFactory
-                .CreateDbContextAsync(cancellationToken);
+        await using VibeCastDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         EpisodeSupportingSource? existing = await dbContext.EpisodeSupportingSources
                 .SingleOrDefaultAsync(candidate =>
@@ -272,7 +271,8 @@ public class FoundryEpisodeResourceAnalysisService(
                 EpisodeResourceRelevancePrompt.SystemMessage
                ),
 
-            new(ChatRole.User,
+            new(
+                ChatRole.User,
                 EpisodeResourceRelevancePrompt.BuildUserMessage(
                         episode,
                         source,
@@ -282,7 +282,7 @@ public class FoundryEpisodeResourceAnalysisService(
 
         ChatOptions options = new()
         {
-            MaxOutputTokens = 1_500
+            MaxOutputTokens = 10_500
         };
 
         ChatResponse<SupportingSourceAssessment> response = await chatClient
