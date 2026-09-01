@@ -11,7 +11,7 @@
 <PageTitle>Create episode</PageTitle>
 
 <div class="breadcrumb-line">
-    <a href="/episodes">Episodes</a>
+    <a href="/dashboard">Dashboard</a>
     <span>/</span>
     <span>Create episode</span>
 </div>
@@ -31,7 +31,6 @@
     <section class="surface-card">
         <EditForm
             EditContext="editContext"
-            OnValidSubmit="PreviewSubmission"
             FormName="create-episode-shell">
 
             <DataAnnotationsValidator />
@@ -116,10 +115,9 @@
                 <div class="form-section-title">
                     <span>3</span>
                     <div>
-                        <h2>Publishing preferences</h2>
+                        <h2>Content language</h2>
                         <p>
-                            Capture language and scheduling information
-                            for the episode workspace.
+                            Select the language for the generated concept.
                         </p>
                     </div>
                 </div>
@@ -137,44 +135,15 @@
                         </InputSelect>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">
-                            Planned publication date
-                        </label>
-                        <InputDate
-                            class="form-control"
-                            @bind-Value="model.PublishDate" />
-                    </div>
                 </div>
             </div>
-
-            @if (showNotice)
-            {
-                <div class="alert alert-info">
-                    The form is valid. Persistence remains disabled
-                    at this teaching checkpoint.
-                </div>
-            }
 
             <div class="form-actions">
                 <a
                     class="btn btn-outline-secondary"
-                    href="/episodes">
+                    href="/dashboard">
                     Cancel
                 </a>
-
-                <button
-                    class="btn btn-outline-primary"
-                    type="button"
-                    @onclick="PreviewSubmission">
-                    Save draft
-                </button>
-
-                <button
-                    class="btn btn-primary"
-                    type="submit">
-                    Save and open workspace
-                </button>
             </div>
         </EditForm>
     </section>
@@ -273,15 +242,6 @@
             </div>
         }
 
-        <div class="mini-status mt-3">
-            <span class="status-dot"></span>
-            <div>
-                <strong>Microsoft Foundry model</strong>
-                <small>
-                    Connected through the VibeCast application boundary.
-                </small>
-            </div>
-        </div>
     </aside>
 </div>
 
@@ -291,7 +251,6 @@
     private EditContext editContext = default!;
     private CancellationTokenSource? generationCancellation;
 
-    private bool showNotice;
     private bool isGenerating;
     private string? generatedConcept;
     private string? generationError;
@@ -305,11 +264,6 @@
     protected override void OnInitialized()
     {
         editContext = new EditContext(model);
-    }
-
-    private void PreviewSubmission()
-    {
-        showNotice = editContext.Validate();
     }
 
     private async Task GenerateConceptAsync()
@@ -553,6 +507,5 @@
         public string Language { get; set; } =
             "English (United States)";
 
-        public DateTime? PublishDate { get; set; }
     }
 }
