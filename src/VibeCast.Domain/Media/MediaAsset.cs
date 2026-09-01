@@ -1,4 +1,5 @@
 using VibeCast.Domain.Common;
+using VibeCast.Domain.Episodes;
 
 namespace VibeCast.Domain.Media;
 
@@ -53,6 +54,8 @@ public sealed class MediaAsset : Entity
     public DateTimeOffset? TranscribedAtUtc { get; private set; }
 
     public bool HasTranscript => !string.IsNullOrWhiteSpace(TranscriptText);
+
+    public IList<EpisodeSupportingSource> SupportingSources { get; private set; } = new List<EpisodeSupportingSource>();
 
     public static MediaAsset Create(Guid? episodeId, string ownerId, string originalFileName, string storageKey, string contentType, long sizeBytes) =>
         new(episodeId, ownerId, originalFileName, storageKey, contentType, sizeBytes);

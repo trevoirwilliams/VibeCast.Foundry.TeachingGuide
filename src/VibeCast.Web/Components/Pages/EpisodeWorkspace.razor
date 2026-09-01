@@ -13,6 +13,7 @@
 @inject IEpisodeService EpisodeService
 @inject IEpisodeArtworkGenerationService EpisodeArtworkGenerationService
 @inject IEpisodeTranscriptionService EpisodeTranscriptionService
+@inject IEpisodeResourceAnalysisService EpisodeResourceAnalysisService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<EpisodeWorkspace> Logger
 
@@ -241,6 +242,10 @@ else if (episode is not null)
                 }
 
                 <EpisodePlanPanel Result="planningResult" />
+                @if (planIsPersisted)
+                {
+                    <EpisodeSupportingSourcesPanel Sources="episode.SupportingSources" />
+                }
             }
             else
             {
@@ -550,19 +555,31 @@ else if (episode is not null)
                     </div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(
-                        artworkGenerationError))
+                @if (!string.IsNullOrWhiteSpace(artworkGenerationError))
                 {
                     <div class="alert alert-danger" role="alert">
                         @artworkGenerationError
                     </div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(
-                        artworkGenerationMessage))
+                @if (!string.IsNullOrWhiteSpace(artworkGenerationMessage))
                 {
                     <div class="alert alert-success" role="status">
                         @artworkGenerationMessage
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(resourceAnalysisError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @resourceAnalysisError
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(resourceAnalysisMessage))
+                {
+                    <div class="alert alert-info" role="status">
+                        @resourceAnalysisMessage
                     </div>
                 }
 
@@ -618,8 +635,7 @@ else if (episode is not null)
                             {
                                 <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
                                     <span>
-                                        @MediaAssetHelpers.GetTypeCode(
-                                            asset.ContentType)
+                                        @MediaAssetHelpers.GetTypeCode(asset.ContentType)
                                     </span>
                                 </div>
                             }
@@ -663,6 +679,30 @@ else if (episode is not null)
                                            href="@($"/media/{asset.Id:D}/artwork")">
                                             Review artwork
                                         </a>
+                                    }
+                                    @if (MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType))
+                                    {
+                                        bool alreadyAdded = episode.SupportingSources.Any(source =>
+                                                    source.MediaAssetId == asset.Id);
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                type="button"
+                                                disabled="@( episode.AcceptedPlan is null || analyzingResourceId.HasValue)"
+                                                @onclick="() => AnalyzeSupportingResourceAsync(asset)">
+
+                                                @if (analyzingResourceId == asset.Id)
+                                                {
+                                                    <span>Assessing relevance...</span>
+                                                }
+                                                else if (alreadyAdded)
+                                                {
+                                                    <span>Reassess relevance</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Assess relevance</span>
+                                                }
+                                        </button>
                                     }
                                 </div>
                             </div>
@@ -785,7 +825,7 @@ else if (episode is not null)
 
     [Inject(Key = EpisodePlanningServiceKeys.WithTools)]
     public IEpisodePlanningService EpisodePlanningService { get; set; } = default!;
-    
+
     private static readonly string[] tabs =
     [
     "Overview",
@@ -807,6 +847,8 @@ else if (episode is not null)
     private CancellationTokenSource? planningCancellation;
     private CancellationTokenSource? artworkGenerationCancellation;
     private CancellationTokenSource? transcriptionCancellation;
+    private CancellationTokenSource? resourceAnalysisCancellation;
+
     private IReadOnlyList<ValidationFailure> planValidationFailures = [];
     private string? currentOwnerId;
 
@@ -837,6 +879,12 @@ else if (episode is not null)
         .FirstOrDefault(asset =>
             asset.Id == selectedTranscriptionMediaAssetId &&
             MediaAssetHelpers.IsAudio(asset.ContentType));
+
+    private Guid? analyzingResourceId;
+
+    private string? resourceAnalysisMessage;
+
+    private string? resourceAnalysisError;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -1189,6 +1237,13 @@ else if (episode is not null)
 
         transcription?.Cancel();
         transcription?.Dispose();
+
+        CancellationTokenSource? resourceAnalysis = Interlocked.Exchange(
+        ref resourceAnalysisCancellation,
+        null);
+
+        resourceAnalysis?.Cancel();
+        resourceAnalysis?.Dispose();
     }
 
     private async Task TranscribeSelectedRecordingAsync()
@@ -1284,5 +1339,75 @@ else if (episode is not null)
                 out Guid mediaAssetId)
                 ? mediaAssetId
                 : null;
+    }
+
+    private async Task AnalyzeSupportingResourceAsync(MediaAssetSummary asset)
+    {
+        if (episode is null || episode.AcceptedPlan is null || string.IsNullOrWhiteSpace(currentOwnerId) ||analyzingResourceId.HasValue)
+        {
+            return;
+        }
+
+        selectedTab = "Media";
+
+        resourceAnalysisMessage = null;
+        resourceAnalysisError = null;
+
+        resourceAnalysisCancellation?.Cancel();
+        resourceAnalysisCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromMinutes(2));
+
+        resourceAnalysisCancellation = currentCancellation;
+        analyzingResourceId = asset.Id;
+
+        try
+        {
+            EpisodeResourceAnalysisResult result =
+                await EpisodeResourceAnalysisService
+                    .AnalyzeAsync(
+                        episode.Id,
+                        asset.Id,
+                        currentOwnerId,
+                        currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Media";
+
+            resourceAnalysisMessage = result.Message;
+        }
+        catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
+        {
+            resourceAnalysisError = "Resource analysis was cancelled or exceeded the two-minute time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to assess supporting resource " +
+                "{MediaAssetId} for episode {EpisodeId}.",
+                asset.Id,
+                episode.Id);
+
+            resourceAnalysisError =
+                "VibeCast could not assess this resource. " +
+                "Verify the Content Understanding and " +
+                "Foundry configuration, then retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    resourceAnalysisCancellation,
+                    currentCancellation))
+            {
+                resourceAnalysisCancellation =
+                    null;
+            }
+
+            currentCancellation.Dispose();
+
+            analyzingResourceId = null;
+        }
     }
 }

@@ -1,5 +1,7 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using Azure;
+using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
 using Azure.AI.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
@@ -52,11 +54,17 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<ContentUnderstandingOptions>()
+            .Bind(configuration.GetSection(ContentUnderstandingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
+        services.AddSingleton<IValidator<SupportingSourceAssessmentValidationRequest>, SupportingSourceAssessmentValidator>();
         services.AddSingleton<MediaUploadValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>>(sp =>
             sp.GetRequiredService<MediaUploadValidator>());
@@ -165,6 +173,21 @@ public static class DependencyInjection
                 new Uri(options.Endpoint, UriKind.Absolute),
                 new ApiKeyCredential(options.ApiKey));
         });
+
+        services.AddSingleton<ContentUnderstandingClient>(
+        serviceProvider => {
+            ContentUnderstandingOptions options = serviceProvider
+                .GetRequiredService<IOptions<ContentUnderstandingOptions>>()
+                .Value;
+
+            return new ContentUnderstandingClient(
+                new Uri(
+                    options.Endpoint,
+                    UriKind.Absolute),
+                new AzureKeyCredential(
+                    options.ApiKey));
+        });
+
         services.AddScoped<
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
@@ -182,7 +205,7 @@ public static class DependencyInjection
         services.AddScoped<IArtworkAnalysisService, FoundryArtworkAnalysisService>();
         services.AddScoped<IEpisodeArtworkGenerationService, FoundryEpisodeArtworkGenerationService>();
         services.AddScoped<IEpisodeTranscriptionService, FoundryEpisodeTranscriptionService>();
-
+        services.AddScoped<IEpisodeResourceAnalysisService, FoundryEpisodeResourceAnalysisService>();
         return services;
     }
 }

@@ -359,3 +359,14 @@ code { color: var(--vc-teal-dark); background: #edf3f4; padding: .1rem .3rem; bo
     line-height: 1.7;
     font-size: .92rem;
 }
+
+.supporting-source-card {
+    padding: 1rem;
+    border: 1px solid var(--vc-border);
+    border-radius: .75rem;
+    background: var(--vc-surface);
+}
+
+.supporting-source-card p, .supporting-source-card li {
+    line-height: 1.6;
+}

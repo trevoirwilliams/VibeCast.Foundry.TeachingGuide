@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using VibeCast.Application.Episodes;
 using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 using VibeCast.Domain.Jobs;
@@ -16,6 +17,7 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<EpisodeFormatPolicy> EpisodeFormatPolicies => Set<EpisodeFormatPolicy>();
+    public DbSet<EpisodeSupportingSource> EpisodeSupportingSources => Set<EpisodeSupportingSource>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -63,6 +65,11 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
                 .HasMaxLength(120);
 
             entity.HasIndex(x => new { x.OwnerId, x.CreatedAtUtc });
+
+            entity.HasMany(s => s.SupportingSources)
+                .WithOne(q => q.Episode)
+                .HasForeignKey(source => source.EpisodeId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<MediaAsset>(entity =>
@@ -106,6 +113,11 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
                 .HasMaxLength(20);
 
             entity.HasIndex(x => x.StorageKey).IsUnique();
+
+            entity.HasMany(s => s.SupportingSources)
+                .WithOne(q => q.MediaAsset)
+                .HasForeignKey(source => source.MediaAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<ProcessingJob>(entity =>
@@ -162,6 +174,52 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
                     policy.IsActive,
                     policy.EffectiveFromUtc
                 });
+        });
+
+        builder.Entity<EpisodeSupportingSource>(entity =>
+        {
+            entity.ToTable("EpisodeSupportingSources");
+
+            entity.HasKey(source => source.Id);
+
+            entity.Property(source => source.OwnerId)
+                .HasMaxLength(450)
+                .IsRequired();
+
+            entity.Property(source => source.Summary)
+                .HasMaxLength(SupportingSourceAssessmentValidator.MaximumSummaryLength)
+                .IsRequired();
+
+            entity.Property(source => source.RelevanceRationale)
+                .HasMaxLength(SupportingSourceAssessmentValidator.MaximumRationaleLength)
+                .IsRequired();
+
+            entity.Property(source => source.RelevantPointsJson)
+                .IsRequired();
+
+            entity.Property(source => source.MatchedEvidenceRequirementsJson)
+                .IsRequired();
+
+            entity.Property(source => source.AnalyzerId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(source => source.RelevancePromptVersion)
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.HasIndex(source => source.MediaAssetId)
+                .IsUnique();
+
+            entity.HasIndex(source =>
+                new
+                {
+                    source.OwnerId,
+                    source.EpisodeId
+                });
+
+            // Relationships are configured on the principal entities (Episode and MediaAsset)
+            // to avoid duplicate or conflicting relationship mappings.
         });
     }
 }

@@ -60,6 +60,11 @@ public static class MediaAssetHelpers
         "audio/mpeg" or
         "audio/mp4";
 
+    public static bool IsSupportedDocumentType(string contentType) =>
+    NormalizeContentType(contentType) is
+        "application/pdf" or
+        "text/plain";
+
     private static bool IsImageContentType(string contentType) => NormalizeContentType(contentType) is "image/png" or "image/jpeg";
 
     private static string NormalizeContentType(string contentType) => contentType?.Trim().ToLowerInvariant() ?? string.Empty;

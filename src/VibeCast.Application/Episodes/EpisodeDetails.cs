@@ -17,4 +17,5 @@ public sealed record EpisodeDetails(
     DateTimeOffset UpdatedAtUtc,
     EpisodePlanningResult? AcceptedPlan,
     EpisodeTranscript? Transcript,
+    IReadOnlyList<EpisodeSupportingSourceSummary> SupportingSources,
     IReadOnlyList<MediaAssetSummary> MediaAssets);
