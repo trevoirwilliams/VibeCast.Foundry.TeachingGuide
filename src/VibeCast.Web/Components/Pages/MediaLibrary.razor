@@ -10,170 +10,123 @@
 <PageTitle>Media library</PageTitle>
 
 <div class="page-heading">
-    <div>
-        <div class="eyebrow">Content</div>
-        <h1>Media library</h1>
+  <div>
+    <div class="eyebrow">Content</div>
+    <h1>Media library</h1>
+    <p>Review validated media available to your VibeCast workspace.</p>
+  </div>
 
-        <p>
-            Review source files that passed the
-            VibeCast intake boundary.
-        </p>
-    </div>
-
-    <a class="btn btn-primary"
-       href="/media/upload">
-        Upload media
-    </a>
+  <a class="btn btn-primary" href="/media/upload">Upload media</a>
 </div>
 
 @if (isLoading)
 {
-    <section class="surface-card">
-        <div class="empty-state compact">
-            <div class="empty-icon">…</div>
-
-            <div>
-                <strong>Loading media</strong>
-                <p>Retrieving your validated assets.</p>
-            </div>
-        </div>
-    </section>
+  <section class="surface-card"><p class="mb-0">Loading your media...</p></section>
 }
 else if (!string.IsNullOrWhiteSpace(loadError))
 {
-    <div class="alert alert-danger" role="alert">
-        @loadError
-    </div>
+  <div class="alert alert-danger" role="alert">@loadError</div>
 }
 else if (assets.Count == 0)
 {
-    <div class="empty-state large">
-        <div class="empty-icon">＋</div>
-
-        <div>
-            <h2>No media yet</h2>
-
-            <p>
-                Upload an image, WAV recording, or PDF
-                to begin the multimodal media package.
-            </p>
-
-            <a class="btn btn-primary"
-               href="/media/upload">
-                Upload source media
-            </a>
-        </div>
+  <div class="empty-state large">
+    <div class="empty-icon">＋</div>
+    <div>
+      <h2>No media yet</h2>
+      <p>Upload an image, recording, video, PDF, or text file.</p>
+      <a class="btn btn-primary" href="/media/upload">Upload media</a>
     </div>
+  </div>
 }
 else
 {
-    <div class="media-card-grid mt-3">
-        @foreach (MediaAssetSummary asset in assets)
+  <div class="media-card-grid mt-3">
+    @foreach (MediaAssetSummary asset in assets)
+    {
+      <article class="media-tile">
+        @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
         {
-            <article class="media-tile">
-                <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
-                    <span>@MediaAssetHelpers.GetTypeCode(asset.ContentType)</span>
-                </div>
-
-                <div class="media-copy">
-                    <div class="d-flex justify-content-between gap-2">
-                        <strong>
-                            @asset.OriginalFileName
-                        </strong>
-
-                        <span class="status-badge badge-info">
-                            @asset.Status
-                        </span>
-                    </div>
-
-                    <small>
-                        @asset.ContentType
-                        · @MediaAssetHelpers.FormatSize(asset.SizeBytes)
-                    </small>
-
-                    <p>
-                        Accepted for later multimodal processing.
-                    </p>
-
-                    <div class="media-meta">
-                        <span>
-                            @(asset.EpisodeId is null
-                                ? "Shared media"
-                                : "Episode media")
-                        </span>
-
-                        <span>
-                            @asset.CreatedAtUtc.ToString("MMM d, yyyy")
-                        </span>
-                    </div>
-
-                    @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
-                    {
-                        <div class="mt-3">
-                            <a class="btn btn-sm
-                                btn-outline-primary"
-                               href="@($"/media/{asset.Id:D}/artwork")">
-                                Analyze artwork
-                            </a>
-                        </div>
-                    }
-                </div>
-            </article>
+          <div class="media-preview preview-image">
+            <img src="@($"/media/{asset.Id:D}/content")" alt="" loading="lazy" />
+          </div>
+        }
+        else
+        {
+          <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
+            <span>@MediaAssetHelpers.GetTypeCode(asset.ContentType)</span>
+          </div>
         }
 
-        <a class="media-tile placeholder-tile"
-           href="/media/upload">
-            <div>＋</div>
-            <strong>Add source media</strong>
-            <small>Upload another validated asset.</small>
-        </a>
-    </div>
+        <div class="media-copy">
+          <div class="media-card-heading">
+            <strong class="media-file-name">@asset.OriginalFileName</strong>
+            <span class="status-badge @GetStatusBadgeClass(asset.Status)">@asset.Status</span>
+          </div>
+
+          <small>@asset.ContentType · @MediaAssetHelpers.FormatSize(asset.SizeBytes)</small>
+          <p>@MediaAssetHelpers.GetMediaSummary(asset.ContentType)</p>
+
+          <div class="media-card-footer">
+            <div class="media-meta">
+              <span>@(asset.EpisodeId is null ? "Shared media" : "Episode media")</span>
+              <span>@asset.CreatedAtUtc.ToString("MMM d, yyyy")</span>
+            </div>
+
+            <div class="media-actions">
+              <a class="btn btn-sm btn-outline-primary" href="@($"/media/{asset.Id:D}/content")">Open file</a>
+              @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
+              {
+                <a class="btn btn-sm btn-outline-secondary" href="@($"/media/{asset.Id:D}/artwork")">Analyze artwork</a>
+              }
+            </div>
+          </div>
+        </div>
+      </article>
+    }
+  </div>
 }
 
 @code {
-    private IReadOnlyList<MediaAssetSummary> assets = [];
-    private bool isLoading;
-    private string? loadError;
+  private IReadOnlyList<MediaAssetSummary> assets = [];
+  private bool isLoading = true;
+  private string? loadError;
 
-    protected override async Task OnInitializedAsync()
+  protected override async Task OnInitializedAsync()
+  {
+    try
     {
-        isLoading = true;
+      AuthenticationState authenticationState =
+        await AuthenticationStateProvider.GetAuthenticationStateAsync();
 
-        try
-        {
-            AuthenticationState authenticationState =
-                await AuthenticationStateProvider
-                    .GetAuthenticationStateAsync();
+      string? ownerId = authenticationState.User
+        .FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            string? ownerId =
-                authenticationState.User
-                    .FindFirst(
-                        ClaimTypes.NameIdentifier)?
-                    .Value;
+      if (string.IsNullOrWhiteSpace(ownerId))
+      {
+        loadError = "The authenticated user could not be resolved. Sign in again and retry.";
+        return;
+      }
 
-            if (string.IsNullOrWhiteSpace(ownerId))
-            {
-                loadError =
-                    "The authenticated user could not be resolved.";
-
-                return;
-            }
-
-            assets = await MediaAssetService.ListAsync(ownerId);
-        }
-        catch (Exception exception)
-        {
-            Logger.LogError(
-                exception,
-                "Failed to load the Media Library.");
-
-            loadError =
-                "VibeCast could not load the Media Library.";
-        }
-        finally
-        {
-            isLoading = false;
-        }
+      assets = await MediaAssetService.ListAsync(ownerId);
     }
-
+    catch (Exception exception)
+    {
+      Logger.LogError(exception, "Failed to load the Media Library.");
+      loadError = "VibeCast could not load the Media Library. Retry in a moment.";
     }
+    finally
+    {
+      isLoading = false;
+    }
+  }
+
+  private static string GetStatusBadgeClass(MediaAssetStatus status) =>
+    status switch
+    {
+      MediaAssetStatus.Ready => "badge-success",
+      MediaAssetStatus.Processing => "badge-warning",
+      MediaAssetStatus.Failed => "badge-danger",
+      MediaAssetStatus.Validated => "badge-info",
+      _ => "badge-neutral"
+    };
+}

@@ -470,8 +470,10 @@ else if (episode is not null)
                                 </div>
                             }
                         </div>
+                    }
+                </div>
 
-                        <aside class="panel-muted">
+                <aside class="panel-muted transcription-settings">
                             <h3>Transcription settings</h3>
 
                             <label class="form-label">
@@ -530,10 +532,7 @@ else if (episode is not null)
                                     </dd>
                                 </dl>
                             }
-                        </aside>
-                    }
-                    
-                </div>
+                </aside>
             </div>
         }
         else if (selectedTab == "Media")
@@ -546,42 +545,6 @@ else if (episode is not null)
                         generated promotional assets.
                     </p>
                 </div>
-
-                @if (episode.AcceptedPlan is null)
-                {
-                    <div class="alert alert-warning" role="status">
-                        Save an accepted episode plan before generating
-                        promotional artwork.
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(artworkGenerationError))
-                {
-                    <div class="alert alert-danger" role="alert">
-                        @artworkGenerationError
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(artworkGenerationMessage))
-                {
-                    <div class="alert alert-success" role="status">
-                        @artworkGenerationMessage
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(resourceAnalysisError))
-                {
-                    <div class="alert alert-danger" role="alert">
-                        @resourceAnalysisError
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(resourceAnalysisMessage))
-                {
-                    <div class="alert alert-info" role="status">
-                        @resourceAnalysisMessage
-                    </div>
-                }
 
                 <div class="d-flex flex-wrap gap-2">
                     <button class="btn btn-sm btn-primary"
@@ -600,15 +563,46 @@ else if (episode is not null)
                 </div>
             </div>
 
+            @if (episode.AcceptedPlan is null)
+            {
+                <div class="alert alert-warning" role="status">
+                    Save an accepted episode plan before generating
+                    promotional artwork.
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(artworkGenerationError))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @artworkGenerationError
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(artworkGenerationMessage))
+            {
+                <div class="alert alert-success" role="status">
+                    @artworkGenerationMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(resourceAnalysisError))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @resourceAnalysisError
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(resourceAnalysisMessage))
+            {
+                <div class="alert alert-info" role="status">
+                    @resourceAnalysisMessage
+                </div>
+            }
+
             @if (episode.MediaAssets.Count == 0)
             {
                 <div class="empty-state compact">
-                    <a class="media-tile placeholder-tile" href="@($"/media/upload?episodeId={episode.Id:D}")">
-                        <div>＋</div>
-                        <strong>Add source media</strong>
-                        <small>Upload another validated asset.</small>
-                    </a>
-
+                    <div class="empty-icon">＋</div>
                     <div>
                         <strong>No media assets yet</strong>
                         <p>
@@ -641,8 +635,8 @@ else if (episode is not null)
                             }
 
                             <div class="media-copy">
-                                <div class="d-flex justify-content-between gap-2">
-                                    <strong>@asset.OriginalFileName</strong>
+                                <div class="media-card-heading">
+                                    <strong class="media-file-name">@asset.OriginalFileName</strong>
 
                                     <span class="status-badge badge-info">
                                         @asset.Status
@@ -657,17 +651,18 @@ else if (episode is not null)
                                     @MediaAssetHelpers.GetMediaSummary(asset.ContentType)
                                 </p>
 
-                                <div class="media-meta">
-                                    <span>
-                                        Attached to this episode
-                                    </span>
+                                <div class="media-card-footer">
+                                    <div class="media-meta">
+                                        <span>
+                                            Attached to this episode
+                                        </span>
 
-                                    <span>
-                                        @asset.CreatedAtUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
-                                    </span>
-                                </div>
+                                        <span>
+                                            @asset.CreatedAtUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
+                                        </span>
+                                    </div>
 
-                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <div class="media-actions">
                                     <a class="btn btn-sm btn-outline-primary"
                                        href="@($"/media/{asset.Id:D}/content")">
                                         Open file
@@ -704,6 +699,7 @@ else if (episode is not null)
                                                 }
                                         </button>
                                     }
+                                    </div>
                                 </div>
                             </div>
                         </article>
@@ -828,13 +824,10 @@ else if (episode is not null)
 
     private static readonly string[] tabs =
     [
-    "Overview",
+        "Overview",
         "AI Planner",
         "Transcript",
-        "Media",
-        "Knowledge",
-        "Workflow",
-        "Evaluation"
+        "Media"
     ];
 
     private EpisodeDetails? episode;

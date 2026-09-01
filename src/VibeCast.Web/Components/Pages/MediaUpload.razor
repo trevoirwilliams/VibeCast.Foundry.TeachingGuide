@@ -27,8 +27,8 @@
     </div>
 </div>
 
-<div class="form-layout">
-    <section class="surface-card">
+<div class="upload-layout">
+    <section class="surface-card upload-card">
         <div class="upload-dropzone">
             <InputFile OnChange="SelectFile"
                        accept=".png,.jpg,.jpeg,.wav,.mp3,.m4a,.mp4,.pdf,.txt"
@@ -150,33 +150,6 @@
             </button>
         </div>
     </section>
-
-    <aside class="surface-card guidance-card">
-        <div class="guidance-icon">⇢</div>
-
-        <h2>Intake checks</h2>
-
-        <ol class="implementation-list">
-            <li>Confirm the authenticated owner</li>
-            <li>Enforce the 25 MB stream limit</li>
-            <li>Validate the approved extension</li>
-            <li>Generate a private storage key</li>
-            <li>Verify the stored file signature</li>
-            <li>Persist the accepted media record</li>
-        </ol>
-
-        <div class="mini-status">
-            <span class="status-dot"></span>
-
-            <div>
-                <strong>No AI processing yet</strong>
-
-                <small>
-                    Analysis and transcription begin in later lessons.
-                </small>
-            </div>
-        </div>
-    </aside>
 </div>
 
 @code {

@@ -14,6 +14,37 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
 {
     private static readonly JsonSerializerOptions JsonOptions =
     new(JsonSerializerDefaults.Web);
+
+    public async Task<IReadOnlyList<EpisodeSummary>> ListAsync(
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext dbContext =
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<EpisodeSummary> episodes = await dbContext.Episodes
+            .AsNoTracking()
+            .Where(episode => episode.OwnerId == ownerId)
+            .Select(episode => new EpisodeSummary(
+                episode.Id,
+                episode.Title,
+                episode.Description,
+                episode.TargetAudience,
+                episode.Status,
+                episode.UpdatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return episodes
+            .OrderByDescending(episode => episode.UpdatedAtUtc)
+            .ToList();
+    }
     
     public async Task<Guid> CreateAsync(CreateEpisodeRequest request, string ownerId, CancellationToken cancellationToken = default)
     {
