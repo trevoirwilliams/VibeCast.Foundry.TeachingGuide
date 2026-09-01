@@ -4,6 +4,7 @@
 @using System.Globalization
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+@using VibeCast.Application.Common
 @using VibeCast.Application.Episodes
 @using VibeCast.Application.Media
 @using VibeCast.Application.Validation
@@ -36,9 +37,7 @@
 else if (!string.IsNullOrWhiteSpace(loadError))
 {
     <section class="surface-card">
-        <div class="alert alert-danger mb-0" role="alert">
-            @loadError
-        </div>
+        <ErrorMessage Message="@loadError" AdditionalCssClass="mb-0" />
     </section>
 }
 else if (episode is not null)
@@ -65,9 +64,7 @@ else if (episode is not null)
         </div>
 
         <div class="page-actions">
-            <span class="status-badge @GetStatusBadgeClass(episode.Status)">
-                @GetStatusLabel(episode.Status)
-            </span>
+            <EpisodeStatusBadge Status="@episode.Status" />
 
             <button class="btn btn-outline-secondary"
                     type="button"
@@ -122,7 +119,7 @@ else if (episode is not null)
 
                     <dl class="detail-grid">
                         <dt>Target audience</dt>
-                        <dd>@episode.TargetAudience</dd>
+                        <dd>@episode!.TargetAudience</dd>
 
                         <dt>Objective</dt>
                         <dd>@episode.Objective</dd>
@@ -156,19 +153,8 @@ else if (episode is not null)
         }
         else if (selectedTab == "AI Planner")
         {
-            @if (!string.IsNullOrWhiteSpace(planSaveError))
-            {
-                <div class="alert alert-danger" role="alert">
-                    @planSaveError
-                </div>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(planSaveMessage))
-            {
-                <div class="alert alert-success" role="status">
-                    @planSaveMessage
-                </div>
-            }
+            <ErrorMessage Message="@planSaveError" />
+            <SuccessMessage Message="@planSaveMessage" />
 
             @if (isGeneratingPlan)
             {
@@ -191,9 +177,7 @@ else if (episode is not null)
             }
             else if (!string.IsNullOrWhiteSpace(planError))
             {
-                <div class="alert alert-danger" role="alert">
-                    <strong>@planError</strong>
-
+                <ErrorMessage Title="@planError">
                     @if (planValidationFailures.Count > 0)
                     {
                         <ul class="mb-0 mt-2">
@@ -208,7 +192,7 @@ else if (episode is not null)
                             }
                         </ul>
                     }
-                </div>
+                </ErrorMessage>
 
                 <button class="btn btn-primary"
                         type="button"
@@ -220,14 +204,8 @@ else if (episode is not null)
             {
                 @if (planIsPersisted)
                 {
-                    <div class="alert alert-info" role="status">
-                        <strong>Saved episode plan</strong>
-
-                        <div>
-                            This accepted plan is persisted with the episode
-                            and will be restored when the workspace reloads.
-                        </div>
-                    </div>
+                    <InformationMessage Title="Saved episode plan"
+                                        Message="This accepted plan is persisted with the episode and will be restored when the workspace reloads." />
                 }
                 else
                 {
@@ -244,7 +222,7 @@ else if (episode is not null)
                 <EpisodePlanPanel Result="planningResult" />
                 @if (planIsPersisted)
                 {
-                    <EpisodeSupportingSourcesPanel Sources="episode.SupportingSources" />
+                    <EpisodeSupportingSourcesPanel Sources="episode!.SupportingSources" />
                 }
             }
             else
@@ -286,26 +264,13 @@ else if (episode is not null)
                         </div>
 
                         <a class="btn btn-sm btn-outline-primary"
-                           href="@($"/media/upload?episodeId={episode.Id:D}")">
+                           href="@($"/media/upload?episodeId={episode!.Id:D}")">
                             Add recording
                         </a>
                     </div>
 
-                    @if (!string.IsNullOrWhiteSpace(transcriptionError))
-                    {
-                        <div class="alert alert-danger"
-                             role="alert">
-                            @transcriptionError
-                        </div>
-                    }
-
-                    @if (!string.IsNullOrWhiteSpace(transcriptionMessage))
-                    {
-                        <div class="alert alert-success"
-                             role="status">
-                            @transcriptionMessage
-                        </div>
-                    }
+                    <ErrorMessage Message="@transcriptionError" />
+                    <SuccessMessage Message="@transcriptionMessage" />
 
                     @if (AudioAssets.Count == 0)
                     {
@@ -470,8 +435,10 @@ else if (episode is not null)
                                 </div>
                             }
                         </div>
+                    }
+                </div>
 
-                        <aside class="panel-muted">
+                <aside class="panel-muted transcription-settings">
                             <h3>Transcription settings</h3>
 
                             <label class="form-label">
@@ -530,10 +497,7 @@ else if (episode is not null)
                                     </dd>
                                 </dl>
                             }
-                        </aside>
-                    }
-                    
-                </div>
+                </aside>
             </div>
         }
         else if (selectedTab == "Media")
@@ -547,46 +511,10 @@ else if (episode is not null)
                     </p>
                 </div>
 
-                @if (episode.AcceptedPlan is null)
-                {
-                    <div class="alert alert-warning" role="status">
-                        Save an accepted episode plan before generating
-                        promotional artwork.
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(artworkGenerationError))
-                {
-                    <div class="alert alert-danger" role="alert">
-                        @artworkGenerationError
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(artworkGenerationMessage))
-                {
-                    <div class="alert alert-success" role="status">
-                        @artworkGenerationMessage
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(resourceAnalysisError))
-                {
-                    <div class="alert alert-danger" role="alert">
-                        @resourceAnalysisError
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(resourceAnalysisMessage))
-                {
-                    <div class="alert alert-info" role="status">
-                        @resourceAnalysisMessage
-                    </div>
-                }
-
                 <div class="d-flex flex-wrap gap-2">
                     <button class="btn btn-sm btn-primary"
                             type="button"
-                            disabled="@(isGeneratingArtwork || episode.AcceptedPlan is null)"
+                            disabled="@(isGeneratingArtwork || episode!.AcceptedPlan is null)"
                             @onclick="GeneratePromotionalArtworkAsync">
                         @(isGeneratingArtwork
                             ? "Generating artwork..."
@@ -594,21 +522,28 @@ else if (episode is not null)
                     </button>
 
                     <a class="btn btn-sm btn-outline-primary"
-                       href="@($"/media/upload?episodeId={episode.Id:D}")">
+                       href="@($"/media/upload?episodeId={episode!.Id:D}")">
                         Add media
                     </a>
                 </div>
             </div>
 
+            @if (episode.AcceptedPlan is null)
+            {
+                <div class="alert alert-warning" role="status">
+                    Save an accepted episode plan before generating promotional artwork.
+                </div>
+            }
+
+            <ErrorMessage Message="@artworkGenerationError" />
+            <SuccessMessage Message="@artworkGenerationMessage" />
+            <ErrorMessage Message="@resourceAnalysisError" />
+            <InformationMessage Message="@resourceAnalysisMessage" />
+
             @if (episode.MediaAssets.Count == 0)
             {
                 <div class="empty-state compact">
-                    <a class="media-tile placeholder-tile" href="@($"/media/upload?episodeId={episode.Id:D}")">
-                        <div>＋</div>
-                        <strong>Add source media</strong>
-                        <small>Upload another validated asset.</small>
-                    </a>
-
+                    <div class="empty-icon">＋</div>
                     <div>
                         <strong>No media assets yet</strong>
                         <p>
@@ -622,94 +557,47 @@ else if (episode is not null)
                 <div class="media-card-grid">
                     @foreach (MediaAssetSummary asset in episode.MediaAssets)
                     {
-                        <article class="media-tile">
-                            @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
-                            {
-                                <div class="media-preview preview-image">
-                                    <img src="@($"/media/{asset.Id:D}/content")"
-                                         alt=""
-                                         loading="lazy" />
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
-                                    <span>
-                                        @MediaAssetHelpers.GetTypeCode(asset.ContentType)
-                                    </span>
-                                </div>
-                            }
+                        <MediaAssetCard Asset="@asset" ContextLabel="Attached to this episode">
+                            <Actions Context="mediaAsset">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="@($"/media/{mediaAsset.Id:D}/content")">
+                                    Open file
+                                </a>
 
-                            <div class="media-copy">
-                                <div class="d-flex justify-content-between gap-2">
-                                    <strong>@asset.OriginalFileName</strong>
-
-                                    <span class="status-badge badge-info">
-                                        @asset.Status
-                                    </span>
-                                </div>
-
-                                <small>
-                                    @asset.ContentType · @MediaAssetHelpers.FormatSize(asset.SizeBytes)
-                                </small>
-
-                                <p>
-                                    @MediaAssetHelpers.GetMediaSummary(asset.ContentType)
-                                </p>
-
-                                <div class="media-meta">
-                                    <span>
-                                        Attached to this episode
-                                    </span>
-
-                                    <span>
-                                        @asset.CreatedAtUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
-                                    </span>
-                                </div>
-
-                                <div class="d-flex flex-wrap gap-2 mt-3">
-                                    <a class="btn btn-sm btn-outline-primary"
-                                       href="@($"/media/{asset.Id:D}/content")">
-                                        Open file
+                                @if (MediaAssetHelpers.IsArtwork(mediaAsset.ContentType))
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       href="@($"/media/{mediaAsset.Id:D}/artwork")">
+                                        Review artwork
                                     </a>
+                                }
 
-                                    @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
-                                    {
-                                        <a class="btn btn-sm btn-outline-secondary"
-                                           href="@($"/media/{asset.Id:D}/artwork")">
-                                            Review artwork
-                                        </a>
-                                    }
-                                    @if (MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType))
-                                    {
-                                        bool alreadyAdded = episode.SupportingSources.Any(source =>
-                                                    source.MediaAssetId == asset.Id);
+                                @if (MediaAssetHelpers.IsSupportedDocumentType(mediaAsset.ContentType))
+                                {
+                                    bool alreadyAdded = episode.SupportingSources.Any(source =>
+                                        source.MediaAssetId == mediaAsset.Id);
 
-                                        <button class="btn btn-sm btn-outline-secondary"
-                                                type="button"
-                                                disabled="@( episode.AcceptedPlan is null || analyzingResourceId.HasValue)"
-                                                @onclick="() => AnalyzeSupportingResourceAsync(asset)">
-
-                                                @if (analyzingResourceId == asset.Id)
-                                                {
-                                                    <span>Assessing relevance...</span>
-                                                }
-                                                else if (alreadyAdded)
-                                                {
-                                                    <span>Reassess relevance</span>
-                                                }
-                                                else
-                                                {
-                                                    <span>Assess relevance</span>
-                                                }
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        </article>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            type="button"
+                                            disabled="@(episode.AcceptedPlan is null || analyzingResourceId.HasValue)"
+                                            @onclick="() => AnalyzeSupportingResourceAsync(mediaAsset)">
+                                        @if (analyzingResourceId == mediaAsset.Id)
+                                        {
+                                            <span>Assessing relevance...</span>
+                                        }
+                                        else if (alreadyAdded)
+                                        {
+                                            <span>Reassess relevance</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Assess relevance</span>
+                                        }
+                                    </button>
+                                }
+                            </Actions>
+                        </MediaAssetCard>
                     }
-
-
                 </div>
             }
         }
@@ -828,13 +716,10 @@ else if (episode is not null)
 
     private static readonly string[] tabs =
     [
-    "Overview",
+        "Overview",
         "AI Planner",
         "Transcript",
-        "Media",
-        "Knowledge",
-        "Workflow",
-        "Evaluation"
+        "Media"
     ];
 
     private EpisodeDetails? episode;
@@ -968,8 +853,22 @@ else if (episode is not null)
                 }
             }
         }
-        catch(Exception e)
+        catch (SafeApplicationException exception)
         {
+            Logger.LogWarning(
+                exception,
+                "The episode workspace request could not be completed for {EpisodeId}.",
+                Id);
+
+            loadError = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load the episode workspace for {EpisodeId}.",
+                Id);
+
             loadError =
                 "VibeCast could not load the episode workspace.";
         }
@@ -985,28 +884,6 @@ else if (episode is not null)
                    "MMMM d, yyyy",
                    CultureInfo.InvariantCulture)
                ?? "Not scheduled";
-    }
-
-    private static string GetStatusLabel(EpisodeStatus status)
-    {
-        return status switch
-        {
-            EpisodeStatus.ReadyForReview => "Ready for review",
-            _ => status.ToString()
-        };
-    }
-
-    private static string GetStatusBadgeClass(EpisodeStatus status)
-    {
-        return status switch
-        {
-            EpisodeStatus.Draft => "badge-neutral",
-            EpisodeStatus.Planning => "badge-info",
-            EpisodeStatus.ReadyForReview => "badge-warning",
-            EpisodeStatus.Published => "badge-success",
-            EpisodeStatus.Archived => "badge-neutral",
-            _ => "badge-neutral"
-        };
     }
 
     private async Task GeneratePlanAsync()
@@ -1072,6 +949,15 @@ else if (episode is not null)
                 exception.Failures.Count,
                 episode.Id);
         }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Episode planning could not continue for episode {EpisodeId}.",
+                episode.Id);
+
+            planError = exception.Message;
+        }
         catch (Exception exception)
         {
             Logger.LogError(
@@ -1126,6 +1012,15 @@ else if (episode is not null)
 
             planSaveMessage =
                 "The accepted episode plan was saved.";
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "The accepted plan could not be saved for episode {EpisodeId}.",
+                episode.Id);
+
+            planSaveError = exception.Message;
         }
         catch (Exception exception)
         {
@@ -1186,6 +1081,15 @@ else if (episode is not null)
             artworkGenerationError =
                 "Artwork generation was cancelled or exceeded " +
                 "the 90-second time limit.";
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Artwork generation could not continue for episode {EpisodeId}.",
+                episode.Id);
+
+            artworkGenerationError = exception.Message;
         }
         catch (Exception exception)
         {
@@ -1294,6 +1198,15 @@ else if (episode is not null)
                 "Transcription was cancelled or exceeded " +
                 "the two-minute time limit.";
         }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Transcription could not continue for media asset {MediaAssetId}.",
+                source.Id);
+
+            transcriptionError = exception.Message;
+        }
         catch (Exception exception)
         {
             Logger.LogError(
@@ -1380,6 +1293,15 @@ else if (episode is not null)
         catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
         {
             resourceAnalysisError = "Resource analysis was cancelled or exceeded the two-minute time limit.";
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Resource analysis could not continue for media asset {MediaAssetId}.",
+                asset.Id);
+
+            resourceAnalysisError = exception.Message;
         }
         catch (Exception exception)
         {

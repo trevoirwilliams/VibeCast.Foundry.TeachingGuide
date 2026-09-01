@@ -31,4 +31,50 @@ public sealed class ValidatorTests
 
         Assert.IsFalse(result.IsValid);
     }
+
+    [TestMethod]
+    public void MediaValidator_AllowsPdfAndTextInTheSharedSourceGallery()
+    {
+        var validator = new MediaUploadValidator();
+
+        var pdfResult = validator.Validate(
+            new MediaUploadRequest(
+                "research.pdf",
+                "application/pdf",
+                100,
+                EpisodeId: null));
+
+        var textResult = validator.Validate(
+            new MediaUploadRequest(
+                "notes.TXT",
+                "text/plain",
+                100,
+                EpisodeId: null));
+
+        Assert.IsTrue(pdfResult.IsValid);
+        Assert.IsTrue(textResult.IsValid);
+    }
+
+    [TestMethod]
+    public void MediaValidator_RestrictsOnlySharedUploadsToPdfAndText()
+    {
+        var validator = new MediaUploadValidator();
+
+        var sharedResult = validator.Validate(
+            new MediaUploadRequest(
+                "cover.png",
+                "image/png",
+                100,
+                EpisodeId: null));
+
+        var episodeResult = validator.Validate(
+            new MediaUploadRequest(
+                "cover.png",
+                "image/png",
+                100,
+                EpisodeId: Guid.NewGuid()));
+
+        Assert.IsFalse(sharedResult.IsValid);
+        Assert.IsTrue(episodeResult.IsValid);
+    }
 }

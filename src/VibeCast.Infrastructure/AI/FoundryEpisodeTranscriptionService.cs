@@ -6,6 +6,7 @@ using Azure.AI.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VibeCast.Application.Abstractions.Storage;
+using VibeCast.Application.Common;
 using VibeCast.Application.Media;
 using VibeCast.Domain.Media;
 using VibeCast.Infrastructure.Data;
@@ -44,18 +45,18 @@ public class FoundryEpisodeTranscriptionService(
                         candidate.Id == mediaAssetId &&
                         candidate.OwnerId == ownerId,
                     cancellationToken)
-            ?? throw new KeyNotFoundException(
+            ?? throw new SafeApplicationException(
                 "The selected recording was not found.");
 
         if (asset.EpisodeId is not Guid episodeId)
         {
-            throw new InvalidOperationException(
+            throw new SafeApplicationException(
                 "The recording must be attached to an episode.");
         }
 
         if (!MediaAssetHelpers.IsAudio(asset.ContentType))
         {
-            throw new InvalidOperationException(
+            throw new SafeApplicationException(
                 "Only audio assets can be transcribed.");
         }
 

@@ -1,0 +1,39 @@
+@if (Visible && (!string.IsNullOrWhiteSpace(Message) || ChildContent is not null))
+{
+    <div class="alert alert-@Kind @AdditionalCssClass" role="@Role">
+        @if (!string.IsNullOrWhiteSpace(Title))
+        {
+            <strong>@Title</strong>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div>@Message</div>
+        }
+
+        @ChildContent
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Kind { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Role { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string? AdditionalCssClass { get; set; }
+
+    [Parameter]
+    public bool Visible { get; set; } = true;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

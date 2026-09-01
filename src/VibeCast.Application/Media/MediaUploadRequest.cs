@@ -58,6 +58,14 @@ public sealed class MediaUploadValidator : IValidator<MediaUploadRequest>
         {
             result.Add(nameof(instance.FileName), "The selected file type is not supported.");
         }
+        else if (instance.EpisodeId is null &&
+                 !string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Add(
+                nameof(instance.FileName),
+                "Shared Source Gallery uploads must be PDF or TXT files.");
+        }
 
         if (instance.SizeBytes <= 0 || instance.SizeBytes > MaximumSizeBytes)
         {

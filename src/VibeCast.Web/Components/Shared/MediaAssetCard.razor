@@ -1,0 +1,80 @@
+@using VibeCast.Application.Media
+@using VibeCast.Domain.Media
+
+<article class="media-tile">
+    @if (MediaAssetHelpers.IsArtwork(Asset.ContentType))
+    {
+        <div class="media-preview preview-image">
+            <img src="@($"/media/{Asset.Id:D}/content")"
+                 alt=""
+                 loading="lazy" />
+        </div>
+    }
+    else
+    {
+        <div class="media-preview @MediaAssetHelpers.GetPreviewClass(Asset.ContentType)">
+            <span>@MediaAssetHelpers.GetTypeCode(Asset.ContentType)</span>
+        </div>
+    }
+
+    <div class="media-copy">
+        <div class="media-card-heading">
+            <strong class="media-file-name">@Asset.OriginalFileName</strong>
+
+            <span class="status-badge @GetStatusBadgeClass(Asset.Status)">
+                @Asset.Status
+            </span>
+        </div>
+
+        <small>
+            @Asset.ContentType · @MediaAssetHelpers.FormatSize(Asset.SizeBytes)
+        </small>
+
+        <p>@GetSummary()</p>
+
+        <div class="media-card-footer">
+            <div class="media-meta">
+                <span>@GetContextLabel()</span>
+                <span>@Asset.CreatedAtUtc.ToString("MMM d, yyyy")</span>
+            </div>
+
+            @if (Actions is not null)
+            {
+                <div class="media-actions">
+                    @Actions(Asset)
+                </div>
+            }
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public MediaAssetSummary Asset { get; set; } = default!;
+
+    [Parameter]
+    public string? ContextLabel { get; set; }
+
+    [Parameter]
+    public string? Summary { get; set; }
+
+    [Parameter]
+    public RenderFragment<MediaAssetSummary>? Actions { get; set; }
+
+    private string GetContextLabel() =>
+        ContextLabel ??
+        (Asset.EpisodeId is null ? "Shared source" : "Episode media");
+
+    private string GetSummary() =>
+        Summary ?? MediaAssetHelpers.GetMediaSummary(Asset.ContentType);
+
+    private static string GetStatusBadgeClass(MediaAssetStatus status) =>
+        status switch
+        {
+            MediaAssetStatus.Ready => "badge-success",
+            MediaAssetStatus.Processing => "badge-warning",
+            MediaAssetStatus.Failed => "badge-danger",
+            MediaAssetStatus.Validated => "badge-info",
+            _ => "badge-neutral"
+        };
+}

@@ -9,6 +9,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VibeCast.Application.Abstractions.Storage;
+using VibeCast.Application.Common;
 using VibeCast.Application.Episodes;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
@@ -53,7 +54,7 @@ public class FoundryEpisodeArtworkGenerationService(
                 episodeId,
                 ownerId,
                 cancellationToken)
-            ?? throw new KeyNotFoundException(
+            ?? throw new SafeApplicationException(
                 "The episode could not be found or is not " +
                 "available to the current user.");
 

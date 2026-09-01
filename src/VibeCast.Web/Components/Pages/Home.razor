@@ -1,104 +1,211 @@
 @page "/"
 @page "/dashboard"
 @attribute [Authorize]
+@using System.Security.Claims
+@using VibeCast.Application.Common
+@inject IEpisodeService EpisodeService
+@inject IMediaAssetService MediaAssetService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<Home> Logger
 
 <PageTitle>VibeCast Dashboard</PageTitle>
 
 <div class="page-heading">
-  <div>
-    <div class="eyebrow">Workspace overview</div>
-    <h1>Good afternoon. Your content operation is ready.</h1>
-    <p>Use the application shell to explore the workflows that will receive AI capabilities throughout the course.</p>
-  </div>
-  <div class="page-actions">
-    <a class="btn btn-outline-primary" href="/media/upload">Upload media</a>
-    <a class="btn btn-primary" href="/episodes/create">Create episode</a>
-  </div>
+    <div>
+        <div class="eyebrow">Workspace overview</div>
+        <h1>Dashboard</h1>
+        <p>Track your episodes, media assets, and reusable research sources.</p>
+    </div>
+
+    <div class="page-actions">
+        <a class="btn btn-outline-primary" href="/media/upload">Upload source</a>
+        <a class="btn btn-primary" href="/episodes/create">Create episode</a>
+    </div>
 </div>
 
-<div class="readiness-banner">
-  <div class="readiness-icon">AI</div>
-  <div>
-    <strong>Microsoft Foundry connection pending</strong>
-    <p>The product interface is available, but model calls, embeddings, retrieval, tools, and workflows are intentionally not configured on this branch.</p>
-  </div>
-  <a href="/settings" class="btn btn-sm btn-light">View configuration</a>
-</div>
+@if (isLoading)
+{
+    <section class="surface-card">
+        <div class="empty-state compact">
+            <div class="empty-icon">…</div>
+            <div>
+                <strong>Loading workspace</strong>
+                <p>Retrieving your latest episodes and media.</p>
+            </div>
+        </div>
+    </section>
+}
+else
+{
+    <ErrorMessage Message="@loadError" />
 
-<div class="metric-grid">
-  @foreach (var metric in metrics)
-  {
-    <div class="metric-card">
-      <div class="metric-label">@metric.Label</div>
-      <div class="metric-value">@metric.Value</div>
-      <div class="metric-note">@metric.Note</div>
-    </div>
-  }
-</div>
+    @if (string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="metric-grid metric-grid-three">
+            <div class="metric-card">
+                <div class="metric-label">Episodes</div>
+                <div class="metric-value">@episodes.Count</div>
+                <div class="metric-note">Owner-scoped editorial workspaces</div>
+            </div>
 
-<div class="dashboard-grid mt-4">
-  <section class="surface-card">
-    <div class="section-heading">
-      <div><h2>Recent episodes</h2><p>Editorial workspaces prepared for AI-assisted planning.</p></div>
-      <a href="/episodes">View all</a>
-    </div>
-    <div class="table-responsive">
-      <table class="table workspace-table">
-        <thead><tr><th>Episode</th><th>Status</th><th>Content state</th><th>Updated</th></tr></thead>
-        <tbody>
-          @foreach (var episode in episodes)
-          {
-            <tr>
-              <td><a class="table-link" href="/episodes/@episode.Id">@episode.Title</a><small>@episode.Audience</small></td>
-              <td><span class="status-badge @episode.StatusClass">@episode.Status</span></td>
-              <td>@episode.ContentState</td>
-              <td>@episode.Updated</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
+            <div class="metric-card">
+                <div class="metric-label">Media assets</div>
+                <div class="metric-value">@assets.Count</div>
+                <div class="metric-note">Episode and shared media</div>
+            </div>
 
-  <aside class="surface-card">
-    <div class="section-heading"><div><h2>Quick actions</h2><p>Start from a prepared product surface.</p></div></div>
-    <div class="quick-actions">
-      <a href="/episodes/create"><span>01</span><div><strong>Create an episode</strong><small>Define the brief and content objective.</small></div></a>
-      <a href="/media/upload"><span>02</span><div><strong>Upload source media</strong><small>Prepare audio, images, and documents.</small></div></a>
-      <a href="/knowledge/create"><span>03</span><div><strong>Add knowledge source</strong><small>Stage enterprise evidence for RAG.</small></div></a>
-      <a href="/approvals"><span>04</span><div><strong>Review approvals</strong><small>Inspect consequential workflow actions.</small></div></a>
-    </div>
-  </aside>
-</div>
+            <div class="metric-card">
+                <div class="metric-label">Shared sources</div>
+                <div class="metric-value">@SharedSourceCount</div>
+                <div class="metric-note">Reusable PDF and text research</div>
+            </div>
+        </div>
 
-<section class="surface-card mt-4">
-  <div class="section-heading">
-    <div><h2>Recent processing activity</h2><p>Illustrative states for the future asynchronous AI job pipeline.</p></div>
-    <a href="/jobs">Open jobs</a>
-  </div>
-  <div class="activity-list">
-    <div><span class="activity-mark running"></span><div><strong>Transcript preparation</strong><small>Episode 104 · Awaiting speech client implementation</small></div><span>Queued</span></div>
-    <div><span class="activity-mark complete"></span><div><strong>Brand policy import</strong><small>Knowledge source structure prepared</small></div><span>Shell ready</span></div>
-    <div><span class="activity-mark pending"></span><div><strong>Editorial workflow</strong><small>Agent execution is introduced in Section 08</small></div><span>Not configured</span></div>
-  </div>
-</section>
+        <div class="dashboard-grid mt-4">
+            <section class="surface-card">
+                <div class="section-heading">
+                    <div>
+                        <h2>Recent episodes</h2>
+                        <p>Your most recently updated editorial workspaces.</p>
+                    </div>
+                    <a href="/episodes">View all</a>
+                </div>
+
+                @if (episodes.Count == 0)
+                {
+                    <div class="empty-state compact">
+                        <div class="empty-icon">＋</div>
+                        <div>
+                            <strong>No episodes yet</strong>
+                            <p>Create an episode to begin planning.</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table workspace-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Episode</th>
+                                    <th>Status</th>
+                                    <th>Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (EpisodeSummary episode in episodes.Take(3))
+                                {
+                                    <tr>
+                                        <td>
+                                            <a class="table-link" href="@($"/episodes/{episode.Id:D}")">
+                                                @episode.Title
+                                            </a>
+                                            <small>@episode.TargetAudience</small>
+                                        </td>
+                                        <td><EpisodeStatusBadge Status="@episode.Status" /></td>
+                                        <td>@FormatUpdatedAt(episode.UpdatedAtUtc)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <aside class="surface-card">
+                <div class="section-heading">
+                    <div>
+                        <h2>Quick actions</h2>
+                        <p>Continue the core VibeCast workflow.</p>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <a href="/episodes/create">
+                        <span>01</span>
+                        <div>
+                            <strong>Create an episode</strong>
+                            <small>Define a brief and content objective.</small>
+                        </div>
+                    </a>
+                    <a href="/media/upload">
+                        <span>02</span>
+                        <div>
+                            <strong>Upload a source</strong>
+                            <small>Add reusable research to the gallery.</small>
+                        </div>
+                    </a>
+                    <a href="/media">
+                        <span>03</span>
+                        <div>
+                            <strong>Open Source Gallery</strong>
+                            <small>Review your shared PDF and text sources.</small>
+                        </div>
+                    </a>
+                </div>
+            </aside>
+        </div>
+    }
+}
 
 @code {
-  private readonly Metric[] metrics =
-  [
-    new("Episodes", "3", "2 drafts · 1 in review"),
-    new("Media assets", "8", "Audio, image, and document shells"),
-    new("Queued jobs", "2", "Execution pipeline not connected"),
-    new("Pending approvals", "1", "Human review surface available")
-  ];
+    private IReadOnlyList<EpisodeSummary> episodes = [];
+    private IReadOnlyList<MediaAssetSummary> assets = [];
+    private bool isLoading;
+    private string? loadError;
 
-  private readonly EpisodeRow[] episodes =
-  [
-    new("104", "Responsible AI in Production", "Engineering leaders", "Draft", "badge-neutral", "Brief ready", "12 minutes ago"),
-    new("103", "Designing Reliable RAG", ".NET developers", "In review", "badge-warning", "Evidence staged", "Yesterday"),
-    new("102", "Multimodal Content Workflows", "Content teams", "Planned", "badge-info", "Media pending", "Jul 14")
-  ];
+    private int SharedSourceCount =>
+        assets.Count(asset =>
+            asset.EpisodeId is null &&
+            MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType));
 
-  private sealed record Metric(string Label, string Value, string Note);
-  private sealed record EpisodeRow(string Id, string Title, string Audience, string Status, string StatusClass, string ContentState, string Updated);
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            AuthenticationState authenticationState =
+                await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+            string? ownerId = authenticationState.User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                loadError =
+                    "The authenticated user could not be resolved. Sign in again and retry.";
+                return;
+            }
+
+            Task<IReadOnlyList<EpisodeSummary>> episodesTask =
+                EpisodeService.ListAsync(ownerId);
+
+            Task<IReadOnlyList<MediaAssetSummary>> assetsTask =
+                MediaAssetService.ListAsync(ownerId);
+
+            await Task.WhenAll(episodesTask, assetsTask);
+
+            episodes = await episodesTask;
+            assets = await assetsTask;
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(exception, "The dashboard query could not be completed.");
+            loadError = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Failed to load the dashboard.");
+            loadError = "VibeCast could not load the dashboard. Retry in a moment.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatUpdatedAt(DateTimeOffset updatedAtUtc) =>
+        updatedAtUtc.ToLocalTime().ToString("MMM d, yyyy");
 }

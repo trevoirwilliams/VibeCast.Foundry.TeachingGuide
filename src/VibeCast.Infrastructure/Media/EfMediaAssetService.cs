@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VibeCast.Application.Abstractions.Storage;
+using VibeCast.Application.Common;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
 using VibeCast.Domain.Media;
@@ -129,6 +130,42 @@ public sealed class EfMediaAssetService(
            .ToList();
     }
 
+    public async Task<IReadOnlyList<MediaAssetSummary>> ListSharedSourcesAsync(
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using var db =
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources = await db.MediaAssets
+            .AsNoTracking()
+            .Where(asset =>
+                asset.OwnerId == ownerId &&
+                asset.EpisodeId == null &&
+                (asset.ContentType == "application/pdf" ||
+                 asset.ContentType == "text/plain"))
+            .Select(asset => new MediaAssetSummary(
+                asset.Id,
+                asset.EpisodeId,
+                asset.OriginalFileName,
+                asset.ContentType,
+                asset.SizeBytes,
+                asset.Status,
+                asset.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return sources
+            .OrderByDescending(source => source.CreatedAtUtc)
+            .ToList();
+    }
+
     public async Task<ArtworkWorkspace?> GetArtworkAsync(Guid mediaAssetId, string ownerId, CancellationToken cancellationToken = default)
     {
         await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(
@@ -183,7 +220,7 @@ public sealed class EfMediaAssetService(
         if (asset.Status != MediaAssetStatus.Validated &&
             asset.Status != MediaAssetStatus.Ready)
         {
-            throw new InvalidOperationException(
+            throw new SafeApplicationException(
                 "Only validated artwork can be opened.");
         }
 
@@ -235,12 +272,11 @@ public sealed class EfMediaAssetService(
 
         if (!validation.IsValid)
         {
-            throw new ArgumentException(
+            throw new SafeApplicationException(
                 string.Join(
                     " ",
                     validation.Errors.Select(
-                        error => error.ErrorMessage)),
-                nameof(acceptedAltText));
+                        error => error.ErrorMessage)));
         }
 
         await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(
@@ -284,7 +320,7 @@ public sealed class EfMediaAssetService(
                     cancellationToken);
 
         return asset ??
-            throw new KeyNotFoundException(
+            throw new SafeApplicationException(
                 "The selected media asset was not found.");
     }
 
@@ -383,7 +419,7 @@ public sealed class EfMediaAssetService(
         if (asset.Status is not
             (MediaAssetStatus.Validated or MediaAssetStatus.Ready))
         {
-            throw new InvalidOperationException(
+            throw new SafeApplicationException(
                 "Only validated media can be opened.");
         }
 

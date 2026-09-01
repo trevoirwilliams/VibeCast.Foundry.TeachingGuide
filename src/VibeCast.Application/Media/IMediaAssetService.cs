@@ -4,8 +4,14 @@ namespace VibeCast.Application.Media;
 
 public interface IMediaAssetService
 {
-    Task<IReadOnlyList<MediaAssetSummary>> ListAsync( string ownerId,
+    Task<IReadOnlyList<MediaAssetSummary>> ListAsync(
+        string ownerId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MediaAssetSummary>> ListSharedSourcesAsync(
+        string ownerId,
+        CancellationToken cancellationToken = default);
+
     Task<MediaUploadResult> UploadAsync(MediaUploadRequest request, Stream content, string ownerId, CancellationToken cancellationToken = default);
 
     Task<ArtworkWorkspace?> GetArtworkAsync(

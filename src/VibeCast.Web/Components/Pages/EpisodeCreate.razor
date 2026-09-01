@@ -2,6 +2,7 @@
 @page "/episodes/create"
 @attribute [Authorize]
 @implements IDisposable
+@using VibeCast.Application.Common
 @using VibeCast.Application.Episodes
 @using System.Diagnostics
 @using System.Text
@@ -154,19 +155,11 @@
                 </div>
             </div>
 
-                @if (!string.IsNullOrWhiteSpace(saveError))
-                {
-                    <div class="alert alert-danger" role="alert">
-                        @saveError
-                    </div>
-                }
+                <ErrorMessage Message="@saveError"
+                              Visible="@(!string.IsNullOrWhiteSpace(saveError))" />
 
-                @if (!string.IsNullOrWhiteSpace(saveNotice))
-                {
-                    <div class="alert alert-success" role="status">
-                        @saveNotice
-                    </div>
-                }
+                <SuccessMessage Message="@saveNotice"
+                                Visible="@(!string.IsNullOrWhiteSpace(saveNotice))" />
 
                 <div class="form-actions">
                     <a class="btn btn-outline-secondary"
@@ -253,14 +246,9 @@
             </button>
         }
 
-        @if (!string.IsNullOrWhiteSpace(generationError))
-        {
-            <div
-                class="alert alert-danger mt-3"
-                role="alert">
-                @generationError
-            </div>
-        }
+        <ErrorMessage Message="@generationError"
+                      Visible="@(!string.IsNullOrWhiteSpace(generationError))"
+                      AdditionalCssClass="mt-3" />
 
         @if (isGenerating || !string.IsNullOrWhiteSpace(generatedConcept))
         {
@@ -391,6 +379,14 @@
                 "The generation request was cancelled or exceeded " +
                 "the 45-second time limit.";
         }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Episode concept generation could not continue.");
+
+            generationError = exception.Message;
+        }
         catch (Exception exception)
         {
             Logger.LogError(
@@ -503,6 +499,16 @@
                 generatedConcept.Length > 0
                     ? "Generation stopped. The partial concept is shown."
                     : "Generation was cancelled before content was received.";
+        }
+        catch (SafeApplicationException exception)
+        {
+            generatedConcept = conceptBuilder.ToString();
+
+            Logger.LogWarning(
+                exception,
+                "Episode concept streaming could not continue.");
+
+            generationError = exception.Message;
         }
         catch (Exception exception)
         {
@@ -669,6 +675,16 @@
             return await EpisodeService.CreateAsync(
                 request,
                 ownerId);
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Episode draft was not persisted for the current user.");
+
+            saveError = exception.Message;
+
+            return null;
         }
         catch (Exception exception)
         {

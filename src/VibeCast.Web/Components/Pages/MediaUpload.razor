@@ -2,46 +2,41 @@
 @attribute [Authorize]
 @implements IDisposable
 @using System.Security.Claims
+@using VibeCast.Application.Common
 @using VibeCast.Application.Media
 @using VibeCast.Application.Validation
 @inject IMediaAssetService MediaAssetService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<MediaUpload> Logger
 
-<PageTitle>Upload media</PageTitle>
+<PageTitle>@(EpisodeId is null ? "Upload source" : "Upload episode media")</PageTitle>
 
 <div class="breadcrumb-line">
-    <a href="/media">Media library</a>
+    <a href="/media">Source gallery</a>
     <span>/</span>
-    <span>Upload media</span>
+    <span>@(EpisodeId is null ? "Upload source" : "Upload episode media")</span>
 </div>
 
 <div class="page-heading">
     <div>
-        <div class="eyebrow">Safe media intake</div>
-        <h1>Upload source media</h1>
-        <p>
-            Add an image, audio recording, video file, or production
-            document to the VibeCast workspace.
-        </p>
+        <div class="eyebrow">Media intake</div>
+        <h1>@(EpisodeId is null ? "Upload source" : "Upload episode media")</h1>
+        <p>@GetPageDescription()</p>
     </div>
 </div>
 
-<div class="form-layout">
-    <section class="surface-card">
+<div class="upload-layout">
+    <section class="surface-card upload-card">
         <div class="upload-dropzone">
             <InputFile OnChange="SelectFile"
-                       accept=".png,.jpg,.jpeg,.wav,.mp3,.m4a,.mp4,.pdf,.txt"
+                       accept="@GetAcceptedFileTypes()"
                        disabled="@isUploading" />
 
             <div class="upload-icon">⇧</div>
 
-            <h2>Choose one media file</h2>
+            <h2>@(EpisodeId is null ? "Choose one source file" : "Choose one media file")</h2>
 
-            <p>
-                PNG, JPEG, WAV, MP3, M4A, MP4, PDF, or TXT.
-                Maximum size: 25 MB.
-            </p>
+            <p>@GetAcceptedFileDescription()</p>
         </div>
 
         @if (selectedFile is not null)
@@ -73,69 +68,39 @@
             </div>
         }
 
-        @if (EpisodeId is Guid episodeId)
-        {
-            <div class="alert alert-info">
-                This file will be associated with episode
-                <code>@episodeId</code>.
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-secondary">
-                This file will be added to the owner’s shared Media Library.
-            </div>
-        }
+        <InformationMessage Message="@GetDestinationMessage()" />
 
-        @if (!string.IsNullOrWhiteSpace(uploadError))
-        {
-            <div class="alert alert-danger" role="alert">
-                @uploadError
-            </div>
-        }
+        <ErrorMessage Message="@uploadError" />
 
-        @if (uploadResult is not null && !uploadResult.Succeeded)
-        {
-            <div class="alert alert-danger" role="alert">
-                <strong>Media rejected</strong>
-
-                <ul class="mb-0 mt-2">
-                    @foreach (ValidationFailure error in uploadResult.Errors)
-                    {
-                        <li>
-                            <code>@error.PropertyName</code>: @error.ErrorMessage
-                        </li>
-                    }
-                </ul>
-            </div>
-        }
-
-        @if (uploadResult?.Asset is not null)
-        {
-            <div class="alert alert-success" role="status">
-                <strong>Media accepted</strong>
-
-                <div>
-                    Asset <code>@uploadResult.Asset.Id</code> was stored as
-                    <strong>@uploadResult.Asset.ContentType</strong>
-                    and marked <strong>@uploadResult.Asset.Status</strong>.
-                </div>
-
-                @if (EpisodeId is Guid attachedEpisodeId)
+        <ErrorMessage Title="Media rejected"
+                      Visible="@(uploadResult is not null && !uploadResult.Succeeded)">
+            <ul class="mb-0 mt-2">
+                @foreach (ValidationFailure error in uploadResult?.Errors ?? [])
                 {
-                    <a class="alert-link"
-                       href="@($"/episodes/{attachedEpisodeId:D}")">
-                        Return to the episode workspace
-                    </a>
+                    <li><code>@error.PropertyName</code>: @error.ErrorMessage</li>
                 }
-                else
-                {
-                    <a class="alert-link" href="/media">
-                        Open the Media Library
-                    </a>
-                }
+            </ul>
+        </ErrorMessage>
+
+        <SuccessMessage Title="Media accepted"
+                        Visible="@(uploadResult?.Asset is not null)">
+            <div>
+                Asset <code>@uploadResult?.Asset?.Id</code> was stored as
+                <strong>@uploadResult?.Asset?.ContentType</strong>
+                and marked <strong>@uploadResult?.Asset?.Status</strong>.
             </div>
-        }
+
+            @if (EpisodeId is Guid attachedEpisodeId)
+            {
+                <a class="alert-link" href="@($"/episodes/{attachedEpisodeId:D}")">
+                    Return to the episode workspace
+                </a>
+            }
+            else
+            {
+                <a class="alert-link" href="/media">Open the Source Gallery</a>
+            }
+        </SuccessMessage>
 
         <div class="form-actions">
             <a class="btn btn-outline-secondary" href="@GetReturnUrl()">
@@ -150,33 +115,6 @@
             </button>
         </div>
     </section>
-
-    <aside class="surface-card guidance-card">
-        <div class="guidance-icon">⇢</div>
-
-        <h2>Intake checks</h2>
-
-        <ol class="implementation-list">
-            <li>Confirm the authenticated owner</li>
-            <li>Enforce the 25 MB stream limit</li>
-            <li>Validate the approved extension</li>
-            <li>Generate a private storage key</li>
-            <li>Verify the stored file signature</li>
-            <li>Persist the accepted media record</li>
-        </ol>
-
-        <div class="mini-status">
-            <span class="status-dot"></span>
-
-            <div>
-                <strong>No AI processing yet</strong>
-
-                <small>
-                    Analysis and transcription begin in later lessons.
-                </small>
-            </div>
-        </div>
-    </aside>
 </div>
 
 @code {
@@ -255,17 +193,23 @@
                 selectedFile = null;
             }
         }
+        catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
+        {
+            uploadError = "The media upload was cancelled.";
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(exception, "Media intake was rejected by the application boundary.");
+            uploadError = exception.Message;
+        }
         catch (IOException exception)
         {
             Logger.LogWarning(
                 exception,
                 "The selected media exceeded the upload limit or the stream ended unexpectedly.");
 
-            uploadError = exception.Message;
-        }
-        catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
-        {
-            uploadError = "The media upload was cancelled.";
+            uploadError =
+                "The selected file could not be read or exceeds the 25 MB upload limit.";
         }
         catch (Exception exception)
         {
@@ -316,6 +260,26 @@
         bytes < 1_048_576
             ? $"{bytes / 1024d:N1} KB"
             : $"{bytes / 1_048_576d:N1} MB";
+
+    private string GetPageDescription() =>
+        EpisodeId is null
+            ? "Add a PDF or TXT research document to your reusable Source Gallery."
+            : "Add an image, recording, video, or document to this episode.";
+
+    private string GetDestinationMessage() =>
+        EpisodeId is Guid episodeId
+            ? $"This file will be associated with episode {episodeId:D}."
+            : "This PDF or TXT file will be added to your shared Source Gallery.";
+
+    private string GetAcceptedFileTypes() =>
+        EpisodeId is null
+            ? ".pdf,.txt"
+            : ".png,.jpg,.jpeg,.wav,.mp3,.m4a,.mp4,.pdf,.txt";
+
+    private string GetAcceptedFileDescription() =>
+        EpisodeId is null
+            ? "PDF or TXT. Maximum size: 25 MB."
+            : "PNG, JPEG, WAV, MP3, M4A, MP4, PDF, or TXT. Maximum size: 25 MB.";
 
     public void Dispose()
     {

@@ -8,6 +8,7 @@ using Azure.AI.ContentUnderstanding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using VibeCast.Application.Common;
 using VibeCast.Application.Episodes;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
@@ -63,20 +64,20 @@ public class FoundryEpisodeResourceAnalysisService(
                 episodeId,
                 ownerId,
                 cancellationToken)
-            ?? throw new KeyNotFoundException("The episode could not be found.");
+            ?? throw new SafeApplicationException("The episode could not be found.");
 
         EpisodePlan acceptedPlan = episode.AcceptedPlan?.Plan
-            ?? throw new InvalidOperationException(
+            ?? throw new SafeApplicationException(
                 "Save an accepted episode plan before " +
                 "assessing supporting resources.");
 
         MediaAssetSummary source = episode.MediaAssets.SingleOrDefault(asset => asset.Id == mediaAssetId)
-            ?? throw new KeyNotFoundException("The selected resource is not attached " +
+            ?? throw new SafeApplicationException("The selected resource is not attached " +
                 "to this episode.");
 
         if (!MediaAssetHelpers.IsSupportedDocumentType(source.ContentType))
         {
-            throw new InvalidOperationException(
+            throw new SafeApplicationException(
                 "Only attached PDF and text resources " +
                 "can be assessed in this workflow.");
         }
@@ -85,7 +86,7 @@ public class FoundryEpisodeResourceAnalysisService(
                 mediaAssetId,
                 ownerId,
                 cancellationToken)
-            ?? throw new KeyNotFoundException("The selected resource could not be opened.");
+            ?? throw new SafeApplicationException("The selected resource could not be opened.");
 
         await using Stream sourceStream = media.Content;
 

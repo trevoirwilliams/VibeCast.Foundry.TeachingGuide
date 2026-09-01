@@ -19,7 +19,12 @@ public sealed class HealthEndpointTests
                     config.AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["Foundry:ProjectEndpoint"] = "https://example.openai.azure.com/",
-                        ["Foundry:ChatModelDeployment"] = "test-deployment"
+                        ["Foundry:ChatModelDeployment"] = "test-chat-deployment",
+                        ["Foundry:ImageModelDeployment"] = "test-image-deployment",
+                        ["Speech:Endpoint"] = "https://example.speech.azure.com/",
+                        ["Speech:ApiKey"] = "test-speech-key",
+                        ["ContentUnderstanding:Endpoint"] = "https://example.services.ai.azure.com/",
+                        ["ContentUnderstanding:ApiKey"] = "test-content-understanding-key"
                     });
                 });
             });

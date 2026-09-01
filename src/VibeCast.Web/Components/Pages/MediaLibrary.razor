@@ -1,29 +1,21 @@
 @page "/media"
 @attribute [Authorize]
 @using System.Security.Claims
-@using VibeCast.Domain.Media
-@using VibeCast.Infrastructure.Media
+@using VibeCast.Application.Common
 @inject IMediaAssetService MediaAssetService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<MediaLibrary> Logger
 
-<PageTitle>Media library</PageTitle>
+<PageTitle>Source gallery</PageTitle>
 
 <div class="page-heading">
     <div>
         <div class="eyebrow">Content</div>
-        <h1>Media library</h1>
-
-        <p>
-            Review source files that passed the
-            VibeCast intake boundary.
-        </p>
+        <h1>Source gallery</h1>
+        <p>Review reusable PDF and text research uploaded independently of an episode.</p>
     </div>
 
-    <a class="btn btn-primary"
-       href="/media/upload">
-        Upload media
-    </a>
+    <a class="btn btn-primary" href="/media/upload">Upload source</a>
 </div>
 
 @if (isLoading)
@@ -31,107 +23,50 @@
     <section class="surface-card">
         <div class="empty-state compact">
             <div class="empty-icon">…</div>
-
             <div>
-                <strong>Loading media</strong>
-                <p>Retrieving your validated assets.</p>
+                <strong>Loading sources</strong>
+                <p>Retrieving your shared research files.</p>
             </div>
         </div>
     </section>
 }
-else if (!string.IsNullOrWhiteSpace(loadError))
-{
-    <div class="alert alert-danger" role="alert">
-        @loadError
-    </div>
-}
-else if (assets.Count == 0)
-{
-    <div class="empty-state large">
-        <div class="empty-icon">＋</div>
-
-        <div>
-            <h2>No media yet</h2>
-
-            <p>
-                Upload an image, WAV recording, or PDF
-                to begin the multimodal media package.
-            </p>
-
-            <a class="btn btn-primary"
-               href="/media/upload">
-                Upload source media
-            </a>
-        </div>
-    </div>
-}
 else
 {
-    <div class="media-card-grid mt-3">
-        @foreach (MediaAssetSummary asset in assets)
-        {
-            <article class="media-tile">
-                <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
-                    <span>@MediaAssetHelpers.GetTypeCode(asset.ContentType)</span>
-                </div>
+    <ErrorMessage Message="@loadError" />
 
-                <div class="media-copy">
-                    <div class="d-flex justify-content-between gap-2">
-                        <strong>
-                            @asset.OriginalFileName
-                        </strong>
-
-                        <span class="status-badge badge-info">
-                            @asset.Status
-                        </span>
-                    </div>
-
-                    <small>
-                        @asset.ContentType
-                        · @MediaAssetHelpers.FormatSize(asset.SizeBytes)
-                    </small>
-
-                    <p>
-                        Accepted for later multimodal processing.
-                    </p>
-
-                    <div class="media-meta">
-                        <span>
-                            @(asset.EpisodeId is null
-                                ? "Shared media"
-                                : "Episode media")
-                        </span>
-
-                        <span>
-                            @asset.CreatedAtUtc.ToString("MMM d, yyyy")
-                        </span>
-                    </div>
-
-                    @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
-                    {
-                        <div class="mt-3">
-                            <a class="btn btn-sm
-                                btn-outline-primary"
-                               href="@($"/media/{asset.Id:D}/artwork")">
-                                Analyze artwork
-                            </a>
-                        </div>
-                    }
-                </div>
-            </article>
-        }
-
-        <a class="media-tile placeholder-tile"
-           href="/media/upload">
-            <div>＋</div>
-            <strong>Add source media</strong>
-            <small>Upload another validated asset.</small>
-        </a>
-    </div>
+    @if (string.IsNullOrWhiteSpace(loadError) && sources.Count == 0)
+    {
+        <div class="empty-state large">
+            <div class="empty-icon">＋</div>
+            <div>
+                <h2>No shared sources yet</h2>
+                <p>Upload a PDF or TXT research file to begin your reusable source gallery.</p>
+                <a class="btn btn-primary" href="/media/upload">Upload source</a>
+            </div>
+        </div>
+    }
+    else if (string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="media-card-grid mt-3">
+            @foreach (MediaAssetSummary source in sources)
+            {
+                <MediaAssetCard Asset="@source"
+                                ContextLabel="Shared source"
+                                Summary="Reusable research source available to VibeCast.">
+                    <Actions Context="asset">
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="@($"/media/{asset.Id:D}/content")">
+                            Open source
+                        </a>
+                    </Actions>
+                </MediaAssetCard>
+            }
+        </div>
+    }
 }
 
 @code {
-    private IReadOnlyList<MediaAssetSummary> assets = [];
+    private IReadOnlyList<MediaAssetSummary> sources = [];
     private bool isLoading;
     private string? loadError;
 
@@ -142,38 +77,34 @@ else
         try
         {
             AuthenticationState authenticationState =
-                await AuthenticationStateProvider
-                    .GetAuthenticationStateAsync();
+                await AuthenticationStateProvider.GetAuthenticationStateAsync();
 
-            string? ownerId =
-                authenticationState.User
-                    .FindFirst(
-                        ClaimTypes.NameIdentifier)?
-                    .Value;
+            string? ownerId = authenticationState.User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
 
             if (string.IsNullOrWhiteSpace(ownerId))
             {
                 loadError =
-                    "The authenticated user could not be resolved.";
-
+                    "The authenticated user could not be resolved. Sign in again and retry.";
                 return;
             }
 
-            assets = await MediaAssetService.ListAsync(ownerId);
+            sources = await MediaAssetService.ListSharedSourcesAsync(ownerId);
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(exception, "The Source Gallery query could not be completed.");
+            loadError = exception.Message;
         }
         catch (Exception exception)
         {
-            Logger.LogError(
-                exception,
-                "Failed to load the Media Library.");
-
-            loadError =
-                "VibeCast could not load the Media Library.";
+            Logger.LogError(exception, "Failed to load the Source Gallery.");
+            loadError = "VibeCast could not load the Source Gallery. Retry in a moment.";
         }
         finally
         {
             isLoading = false;
         }
     }
-
-    }
+}

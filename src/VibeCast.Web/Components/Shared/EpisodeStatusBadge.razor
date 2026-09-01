@@ -1,0 +1,26 @@
+@using VibeCast.Domain.Episodes
+
+<span class="status-badge @GetBadgeClass(Status)">
+    @GetLabel(Status)
+</span>
+
+@code {
+    [Parameter]
+    public EpisodeStatus Status { get; set; }
+
+    private static string GetLabel(EpisodeStatus status) =>
+        status == EpisodeStatus.ReadyForReview
+            ? "Ready for review"
+            : status.ToString();
+
+    private static string GetBadgeClass(EpisodeStatus status) =>
+        status switch
+        {
+            EpisodeStatus.Draft => "badge-neutral",
+            EpisodeStatus.Planning => "badge-info",
+            EpisodeStatus.ReadyForReview => "badge-warning",
+            EpisodeStatus.Published => "badge-success",
+            EpisodeStatus.Archived => "badge-neutral",
+            _ => "badge-neutral"
+        };
+}

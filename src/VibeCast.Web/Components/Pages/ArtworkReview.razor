@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @using System.Security.Claims
+@using VibeCast.Application.Common
 @using VibeCast.Application.Media
 @using VibeCast.Domain.Media
 @inject IMediaAssetService MediaAssetService
@@ -12,7 +13,7 @@
 <PageTitle>Artwork accessibility review</PageTitle>
 
 <div class="breadcrumb-line">
-    <a href="/media">Media library</a>
+    <a href="/media">Source gallery</a>
     <span>/</span>
     <span>Artwork review</span>
 </div>
@@ -44,10 +45,8 @@
 }
 else if (workspace is null)
 {
-    <div class="alert alert-warning">
-        The selected artwork was not found or is not
-        available to the current user.
-    </div>
+    <InformationMessage
+        Message="The selected artwork was not found or is not available to the current user." />
 }
 else
 {
@@ -118,21 +117,13 @@ else
                 </button>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
-                <div class="alert alert-danger mt-3"
-                     role="alert">
-                    @errorMessage
-                </div>
-            }
+            <ErrorMessage Message="@errorMessage"
+                          Visible="@(!string.IsNullOrWhiteSpace(errorMessage))"
+                          AdditionalCssClass="mt-3" />
 
-            @if (!string.IsNullOrWhiteSpace(statusMessage))
-            {
-                <div class="alert alert-success mt-3"
-                     role="status">
-                    @statusMessage
-                </div>
-            }
+            <SuccessMessage Message="@statusMessage"
+                            Visible="@(!string.IsNullOrWhiteSpace(statusMessage))"
+                            AdditionalCssClass="mt-3" />
 
             @if (workspace.HasProposal)
             {
@@ -231,15 +222,12 @@ else
                 }
                 else
                 {
-                    <div class="alert alert-success mt-4">
-                        <strong>
-                            Accepted description
-                        </strong>
-
+                    <SuccessMessage Title="Accepted description"
+                                    AdditionalCssClass="mt-4">
                         <p class="mb-0 mt-2">
                             @workspace.AcceptedAltText
                         </p>
-                    </div>
+                    </SuccessMessage>
                 }
             }
             else
@@ -326,6 +314,15 @@ else
             when (cancellationTokenSource
                 .IsCancellationRequested)
         {
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Could not load artwork {MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage = exception.Message;
         }
         catch (Exception exception)
         {
@@ -417,6 +414,15 @@ else
                 .IsCancellationRequested)
         {
         }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Artwork analysis could not continue for {MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage = exception.Message;
+        }
         catch (Exception exception)
         {
             Logger.LogError(
@@ -465,14 +471,19 @@ else
                 "The accessible description has been " +
                 "accepted.";
         }
-        catch (ArgumentException exception)
-        {
-            errorMessage = exception.Message;
-        }
         catch (OperationCanceledException)
             when (cancellationTokenSource
                 .IsCancellationRequested)
         {
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Artwork description was not accepted for {MediaAssetId}.",
+                MediaAssetId);
+
+            errorMessage = exception.Message;
         }
         catch (Exception exception)
         {
