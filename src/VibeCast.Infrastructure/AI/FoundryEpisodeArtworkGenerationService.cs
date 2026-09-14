@@ -187,6 +187,7 @@ public class FoundryEpisodeArtworkGenerationService(
                     asset.SizeBytes,
                 Status:
                     asset.Status,
+                asset.IsKnowledgeSource,
                 CreatedAtUtc:
                     asset.CreatedAtUtc);
         }

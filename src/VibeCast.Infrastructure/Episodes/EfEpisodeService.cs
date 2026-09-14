@@ -93,6 +93,7 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
                 asset.ContentType,
                 asset.SizeBytes,
                 asset.Status,
+                asset.IsKnowledgeSource,
                 asset.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
