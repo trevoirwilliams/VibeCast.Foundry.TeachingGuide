@@ -2,20 +2,40 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @using VibeCast.Application.Common
+@using VibeCast.Domain.Media
 @inject IMediaAssetService MediaAssetService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<MediaLibrary> Logger
 
-<PageTitle>Source gallery</PageTitle>
+<PageTitle>Media library</PageTitle>
 
 <div class="page-heading">
     <div>
         <div class="eyebrow">Content</div>
-        <h1>Source gallery</h1>
-        <p>Review reusable PDF and text research uploaded independently of an episode.</p>
+        <h1>Media library</h1>
+        <p>
+            Review uploaded media and choose which documents
+            can participate in the VibeCast knowledge pipeline.
+        </p>
     </div>
 
-    <a class="btn btn-primary" href="/media/upload">Upload source</a>
+    <a class="btn btn-primary" href="/media/upload">
+        Upload document
+    </a>
+</div>
+
+<div class="surface-card filter-bar">
+    <select class="form-select" @bind="selectedFilter">
+        <option value="@MediaFilter.All">
+            All media
+        </option>
+        <option value="@MediaFilter.General">
+            General media
+        </option>
+        <option value="@MediaFilter.Knowledge">
+            Knowledge sources
+        </option>
+    </select>
 </div>
 
 @if (isLoading)
@@ -24,8 +44,8 @@
         <div class="empty-state compact">
             <div class="empty-icon">…</div>
             <div>
-                <strong>Loading sources</strong>
-                <p>Retrieving your shared research files.</p>
+                <strong>Loading media</strong>
+                <p>Retrieving your uploaded assets.</p>
             </div>
         </div>
     </section>
@@ -34,30 +54,54 @@ else
 {
     <ErrorMessage Message="@loadError" />
 
-    @if (string.IsNullOrWhiteSpace(loadError) && sources.Count == 0)
+    @if (string.IsNullOrWhiteSpace(loadError) && FilteredAssets.Count == 0)
     {
         <div class="empty-state large">
             <div class="empty-icon">＋</div>
             <div>
-                <h2>No shared sources yet</h2>
-                <p>Upload a PDF or TXT research file to begin your reusable source gallery.</p>
-                <a class="btn btn-primary" href="/media/upload">Upload source</a>
+                <h2>No filtered media found</h2>
+                <p>Try selecting a different filter or upload a new media file.</p>
+                <a class="btn btn-primary" href="/media/upload">Upload media</a>
             </div>
         </div>
     }
     else if (string.IsNullOrWhiteSpace(loadError))
     {
         <div class="media-card-grid mt-3">
-            @foreach (MediaAssetSummary source in sources)
+            @foreach (MediaAssetSummary source in FilteredAssets)
             {
                 <MediaAssetCard Asset="@source"
                                 ContextLabel="Shared source"
                                 Summary="Reusable research source available to VibeCast.">
                     <Actions Context="asset">
-                        <a class="btn btn-sm btn-outline-primary"
-                           href="@($"/media/{asset.Id:D}/content")">
-                            Open source
-                        </a>
+                        <div class="d-flex flex-column gap-2">
+
+                            @if (MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType))
+                            {
+                                <label class="form-check mb-0">
+
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           checked="@asset.IsKnowledgeSource"
+                                           disabled="@IsUpdating(asset.Id)"
+                                           @onchange="args =>
+                                               ToggleKnowledgeSourceAsync(
+                                                   asset,
+                                                   args)" />
+
+                                    <span class="form-check-label">
+                                        Use as knowledge source
+                                    </span>
+
+                                </label>
+                            }
+
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="@($"/media/{asset.Id:D}/content")">
+                                Open
+                            </a>
+
+                        </div>
                     </Actions>
                 </MediaAssetCard>
             }
@@ -67,8 +111,27 @@ else
 
 @code {
     private IReadOnlyList<MediaAssetSummary> sources = [];
+    private readonly HashSet<Guid> updatingAssetIds = [];
+
+    private string? ownerId;
     private bool isLoading;
     private string? loadError;
+    private MediaFilter selectedFilter = MediaFilter.All;
+
+    private IReadOnlyList<MediaAssetSummary> FilteredAssets => selectedFilter switch
+    {
+        MediaFilter.General =>
+            sources
+                .Where(asset => !asset.IsKnowledgeSource)
+                .ToList(),
+
+        MediaFilter.Knowledge =>
+            sources
+                .Where(asset => asset.IsKnowledgeSource)
+                .ToList(),
+
+        _ => sources
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -76,8 +139,7 @@ else
 
         try
         {
-            AuthenticationState authenticationState =
-                await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 
             string? ownerId = authenticationState.User
                 .FindFirst(ClaimTypes.NameIdentifier)?
@@ -90,7 +152,7 @@ else
                 return;
             }
 
-            sources = await MediaAssetService.ListSharedSourcesAsync(ownerId);
+            sources = await MediaAssetService.ListAsync(ownerId);
         }
         catch (SafeApplicationException exception)
         {
@@ -106,5 +168,66 @@ else
         {
             isLoading = false;
         }
+    }
+
+    private async Task ToggleKnowledgeSourceAsync(MediaAssetSummary asset, ChangeEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            return;
+        }
+
+        bool isKnowledgeSource = args.Value is bool value && value;
+
+        updatingAssetIds.Add(asset.Id);
+        loadError = null;
+
+        try
+        {
+            await MediaAssetService.SetKnowledgeSourceAsync(
+                asset.Id,
+                isKnowledgeSource,
+                ownerId);
+
+            sources = sources.Select(current => current.Id == asset.Id
+                        ? current with
+                        {
+                            IsKnowledgeSource = isKnowledgeSource
+                        }
+                        : current)
+                .ToList();
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(
+                exception,
+                "Could not change knowledge-source state for media asset {MediaAssetId}.",
+                asset.Id);
+
+            loadError = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to change knowledge-source state for media asset {MediaAssetId}.",
+                asset.Id);
+
+            loadError =
+                "VibeCast could not update the selected knowledge source.";
+        }
+        finally
+        {
+            updatingAssetIds.Remove(asset.Id);
+        }
+    }
+
+    private bool IsUpdating(Guid assetId) => updatingAssetIds.Contains(assetId);
+
+    private enum MediaFilter
+    {
+        All,
+        General,
+        Knowledge
     }
 }
