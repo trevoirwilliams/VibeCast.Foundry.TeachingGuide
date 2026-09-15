@@ -16,6 +16,7 @@ namespace VibeCast.Infrastructure.Media;
 public sealed class EfMediaAssetService(
     IDbContextFactory<VibeCastDbContext> dbContextFactory,
     IBlobStorage blobStorage,
+    IKnowledgeSourceStorage knowledgeSourceStorage,
     MediaUploadValidator validator,
     ArtworkAnalysisValidator artworkValidator,
     ILogger<EfMediaAssetService> logger) : IMediaAssetService
@@ -513,13 +514,113 @@ public sealed class EfMediaAssetService(
                 "Only PDF and TXT documents can currently be used as knowledge sources.");
         }
 
-        asset.SetKnowledgeSource(isKnowledgeSource);
+        if (isKnowledgeSource)
+        {
+            await PromoteKnowledgeSourceAsync(
+                asset,
+                db,
+                cancellationToken);
+
+            return;
+        }
+
+        await WithdrawKnowledgeSourceAsync(
+            asset,
+            db,
+            cancellationToken);
+    }
+
+    private async Task PromoteKnowledgeSourceAsync(MediaAsset asset, VibeCastDbContext db, CancellationToken cancellationToken)
+    {
+        bool wasAlreadyKnowledgeSource = asset.IsKnowledgeSource;
+
+        Stream sourceContent;
+
+        try
+        {
+            sourceContent = await blobStorage.OpenReadAsync(
+                    asset.StorageKey,
+                    cancellationToken);
+        }
+        catch (Exception exception)
+            when (exception is IOException or
+                  UnauthorizedAccessException)
+        {
+            throw new SafeApplicationException(
+                "The original source file could not be opened.",
+                exception);
+        }
+
+        await using (sourceContent)
+        {
+            StoredKnowledgeSource stored =
+                await knowledgeSourceStorage.SaveAsync(
+                    mediaAssetId: asset.Id,
+                    ownerId: asset.OwnerId,
+                    originalFileName:
+                        asset.OriginalFileName,
+                    contentType:
+                        asset.ContentType,
+                    content:
+                        sourceContent,
+                    cancellationToken:
+                        cancellationToken);
+
+            try
+            {
+                asset.SetKnowledgeSource(true);
+
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                if (!wasAlreadyKnowledgeSource)
+                {
+                    try
+                    {
+                        await knowledgeSourceStorage.DeleteAsync(
+                            asset.Id,
+                            asset.OwnerId,
+                            asset.OriginalFileName,
+                            CancellationToken.None);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        logger.LogError(
+                            cleanupException,
+                            "Failed to compensate knowledge-source Blob creation for media asset {MediaAssetId}.",
+                            asset.Id);
+                    }
+                }
+
+                throw;
+            }
+
+            logger.LogInformation(
+                "Promoted media asset {MediaAssetId} to knowledge storage at {StorageKey}.",
+                asset.Id,
+                stored.StorageKey);
+        }
+
+    }
+
+    private async Task WithdrawKnowledgeSourceAsync(
+        MediaAsset asset,
+        VibeCastDbContext db,
+        CancellationToken cancellationToken)
+    {
+        await knowledgeSourceStorage.DeleteAsync(
+            asset.Id,
+            asset.OwnerId,
+            asset.OriginalFileName,
+            cancellationToken);
+
+        asset.SetKnowledgeSource(false);
 
         await db.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "Media asset {MediaAssetId} knowledge-source state changed to {IsKnowledgeSource}.",
-            mediaAssetId,
-            isKnowledgeSource);
+            "Withdrew media asset {MediaAssetId} from the knowledge store.",
+            asset.Id);
     }
 }

@@ -10,6 +10,8 @@
     <PackageReference Include="OpenAI" />
     <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VibeCast.Application\VibeCast.Application.csproj" />

@@ -4,6 +4,8 @@ using Azure;
 using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
 using Azure.AI.Speech.Transcription;
+using Azure.Identity;
+using Azure.Storage.Blobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +41,20 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<KnowledgeStorageOptions>()
+            .Bind(configuration.GetSection(KnowledgeStorageOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(
+                options =>
+                    Uri.TryCreate(
+                        options.ServiceUri,
+                        UriKind.Absolute,
+                        out Uri? uri) &&
+                    uri.Scheme == Uri.UriSchemeHttps,
+                "KnowledgeStorage:ServiceUri must be an absolute HTTPS URI.")
+            .ValidateOnStart();
+
+
         services.AddOptions<BackgroundJobsOptions>()
             .Bind(configuration.GetSection(BackgroundJobsOptions.SectionName))
             .ValidateDataAnnotations()
@@ -59,7 +75,32 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
+        services.AddSingleton<BlobServiceClient>(serviceProvider =>
+        {
+            KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                    .Value;
+
+            return new BlobServiceClient(
+                new Uri(
+                    options.ServiceUri,
+                    UriKind.Absolute),
+                new DefaultAzureCredential());
+        });
+
+        services.AddSingleton<BlobContainerClient>(serviceProvider =>
+            {
+                KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                        .Value;
+
+                BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
+
+                return blobServiceClient.GetBlobContainerClient(options.ContainerName);
+            });
+
+        services.AddSingleton<IKnowledgeSourceStorage, AzureBlobKnowledgeSourceStorage>();
+
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
 

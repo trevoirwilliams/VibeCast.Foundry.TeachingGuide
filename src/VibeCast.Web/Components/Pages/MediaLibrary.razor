@@ -141,7 +141,7 @@ else
         {
             AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 
-            string? ownerId = authenticationState.User
+            ownerId = authenticationState.User
                 .FindFirst(ClaimTypes.NameIdentifier)?
                 .Value;
 
