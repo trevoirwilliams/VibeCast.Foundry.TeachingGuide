@@ -2,9 +2,11 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @using VibeCast.Application.Common
+@using VibeCast.Application.Knowledge
 @using VibeCast.Application.Media
 @using VibeCast.Domain.Media
 @inject IMediaAssetService MediaAssetService
+@inject IGroundedBlogGenerationService BlogGenerationService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<KnowledgeSources> Logger
 
@@ -33,11 +35,11 @@
     <table class="table workspace-table mb-0">
         <thead>
             <tr>
+                <th style="width: 48px;">Use</th>
                 <th>Knowledge source</th>
                 <th>Type</th>
                 <th>Size</th>
                 <th>Media status</th>
-                <th>Knowledge status</th>
                 <th>Added</th>
                 <th></th>
             </tr>
@@ -46,6 +48,13 @@
       @foreach (MediaAssetSummary source in sources)
       {
           <tr>
+              <td>
+                  <input class="form-check-input"
+                          type="checkbox"
+                          checked="@selectedSourceIds.Contains(source.Id)"
+                          disabled="@isRetrieving"
+                          @onchange="args => ToggleSource(source.Id, args)" />
+              </td>
               <td>
                   <strong>
                       @source.OriginalFileName
@@ -67,12 +76,6 @@
               </td>
 
               <td>
-                  <span class="status-badge badge-warning">
-                      Awaiting ingestion
-                  </span>
-              </td>
-
-              <td>
                   @source.CreatedAtUtc.ToString("MMM d, yyyy")
               </td>
 
@@ -89,22 +92,139 @@
   </div>
 </section>
 
-<div class="architecture-callout mt-4">
-    <div>
-        <strong>Next: connect the knowledge corpus</strong>
+<section class="surface-card mt-4">
+
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+
+        <div>
+            <div class="eyebrow">
+                Grounded generation
+            </div>
+
+            <h2 class="h4 mb-1">
+                Generate blog from knowledge
+            </h2>
+
+            <p class="text-muted mb-0">
+                VibeCast will find the strongest supported topic in the selected documents and generate a blog
+                grounded only in that evidence.
+            </p>
+        </div>
+
+        <span class="status-badge badge-info">
+            @selectedSourceIds.Count selected
+        </span>
+
+    </div>
+
+    <div class="mt-3">
+
+        <button class="btn btn-primary" disabled="@(!CanGenerate)" @onclick="GenerateBlogAsync">
+            @(isGenerating ? "Generating blog..." : "Generate blog")
+        </button>
+
+    </div>
+
+    <ErrorMessage Message="@generationError" />
+</section>
+
+@if (generatedBlog is not null)
+{
+    <section class="surface-card mt-4">
+
+        <div class="eyebrow">
+            Generated blog
+        </div>
+
+        <h2 class="mt-2">
+            @generatedBlog.Title
+        </h2>
+
+        @if (!string.IsNullOrWhiteSpace(generatedBlog.Subtitle))
+        {
+            <p class="lead">
+                @generatedBlog.Subtitle
+            </p>
+        }
+
+        <p class="text-muted">
+            @generatedBlog.Summary
+        </p>
+
+        <hr />
 
         <p>
-            Approved sources are now stored in the curated
-            Azure Blob container. Next, connect that container
-            to Foundry IQ for managed Azure AI Search ingestion.
+            @generatedBlog.Introduction
         </p>
-    </div>
-</div>
+
+        @foreach (GroundedBlogSection section in generatedBlog.Sections)
+        {
+            <h3 class="h5 mt-4">
+                @section.Heading
+            </h3>
+
+            <p>
+                @section.Body
+            </p>
+        }
+
+        <h3 class="h5 mt-4">
+            Conclusion
+        </h3>
+
+        <p>
+            @generatedBlog.Conclusion
+        </p>
+
+        <h3 class="h5 mt-4">
+            Key takeaways
+        </h3>
+
+        <ul>
+            @foreach (string takeaway in generatedBlog.KeyTakeaways)
+            {
+                <li>@takeaway</li>
+            }
+        </ul>
+
+        <div class="architecture-callout mt-4">
+
+            <div>
+                <strong>
+                    Evidence references
+                </strong>
+
+                <p class="mb-0">
+                    @string.Join(", ", generatedBlog.SourceReferenceIds.Select(reference => $"Ref {reference}"))
+                </p>
+            </div>
+
+        </div>
+
+    </section>
+}
 
 @code {
     private IReadOnlyList<MediaAssetSummary> sources = [];
     private bool isLoading;
     private string? loadError;
+
+    private string? ownerId;
+
+    private readonly HashSet<Guid> selectedSourceIds = [];
+
+    private bool isRetrieving;
+
+    private string? retrievalError;
+
+    private bool isGenerating;
+    private string generationError;
+    private GroundedBlogDraft? generatedBlog;
+
+    private bool CanGenerate => 
+      selectedSourceIds.Count > 0 &&
+      !isGenerating &&
+      !string.IsNullOrWhiteSpace(ownerId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,12 +232,9 @@
 
         try
         {
-            AuthenticationState authenticationState =
-                await AuthenticationStateProvider
-                    .GetAuthenticationStateAsync();
+            AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 
-            string? ownerId =
-                authenticationState.User
+            ownerId = authenticationState.User
                     .FindFirst(ClaimTypes.NameIdentifier)?
                     .Value;
 
@@ -132,23 +249,71 @@
         }
         catch (SafeApplicationException exception)
         {
-            Logger.LogWarning(
-                exception,
-                "Could not load knowledge sources.");
+            Logger.LogWarning(exception, "Could not load knowledge sources.");
 
             loadError = exception.Message;
         }
         catch (Exception exception)
         {
-            Logger.LogError(
-                exception,
-                "Failed to load knowledge sources.");
+            Logger.LogError(exception, "Failed to load knowledge sources.");
 
             loadError = "VibeCast could not load knowledge sources.";
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private void ToggleSource(Guid sourceId, ChangeEventArgs args)
+    {
+        bool selected = args.Value is bool value && value;
+
+        if (selected)
+        {
+            selectedSourceIds.Add(sourceId);
+        }
+        else
+        {
+            selectedSourceIds.Remove(sourceId);
+        }
+
+        generatedBlog = null;
+        generationError = null;
+    }
+
+    private async Task GenerateBlogAsync()
+    {
+        if (!CanGenerate || string.IsNullOrWhiteSpace(ownerId))
+        {
+            return;
+        }
+
+        isGenerating = true;
+        generatedBlog = null;
+        generationError = null;
+
+        try
+        {
+            GenerateGroundedBlogRequest request = new(selectedSourceIds.ToArray());
+
+            generatedBlog = await BlogGenerationService.GenerateAsync(request, ownerId);
+        }
+        catch (SafeApplicationException exception)
+        {
+            Logger.LogWarning(exception, "Grounded blog generation could not be completed.");
+
+            generationError = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Grounded blog generation failed.");
+
+            generationError = "VibeCast could not generate a blog from the selected sources.";
+        }
+        finally
+        {
+            isGenerating = false;
         }
     }
 }

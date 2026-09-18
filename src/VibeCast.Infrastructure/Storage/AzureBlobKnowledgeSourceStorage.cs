@@ -133,6 +133,16 @@ public sealed class AzureBlobKnowledgeSourceStorage(
         }
     }
 
+    public Uri GetUri(Guid mediaAssetId, string ownerId, string originalFileName)
+    {
+        string storageKey = BuildStorageKey(
+            mediaAssetId,
+            ownerId,
+            originalFileName);
+
+        return containerClient.GetBlobClient(storageKey).Uri;
+    }
+
     private static string BuildStorageKey(
         Guid mediaAssetId,
         string ownerId,

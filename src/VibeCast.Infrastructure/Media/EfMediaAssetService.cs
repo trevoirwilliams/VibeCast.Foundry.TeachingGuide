@@ -623,4 +623,54 @@ public sealed class EfMediaAssetService(
             "Withdrew media asset {MediaAssetId} from the knowledge store.",
             asset.Id);
     }
+
+    public async Task<IReadOnlyList<MediaAssetSummary>> GetKnowledgeSourcesAsync(
+        IReadOnlyCollection<Guid> mediaAssetIds,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mediaAssetIds);
+
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException("An authenticated owner is required.", nameof(ownerId));
+        }
+
+        Guid[] requestedIds = mediaAssetIds
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToArray();
+
+        if (requestedIds.Length == 0)
+        {
+            throw new SafeApplicationException("Select at least one knowledge source.");
+        }
+
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources = await db.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.IsKnowledgeSource &&
+                    requestedIds.Contains(asset.Id))
+                .Select(asset =>
+                    new MediaAssetSummary(
+                        asset.Id,
+                        asset.EpisodeId,
+                        asset.OriginalFileName,
+                        asset.ContentType,
+                        asset.SizeBytes,
+                        asset.Status,
+                        asset.IsKnowledgeSource,
+                        asset.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        if (sources.Count != requestedIds.Length)
+        {
+            throw new SafeApplicationException("One or more selected knowledge sources are unavailable.");
+        }
+
+        return sources;
+    }
 }

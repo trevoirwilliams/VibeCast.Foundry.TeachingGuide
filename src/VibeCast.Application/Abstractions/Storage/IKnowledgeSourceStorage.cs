@@ -15,6 +15,11 @@ public interface IKnowledgeSourceStorage
         string ownerId,
         string originalFileName,
         CancellationToken cancellationToken = default);
+
+    Uri GetUri(
+        Guid mediaAssetId,
+        string ownerId,
+        string originalFileName);
 }
 
 public sealed record StoredKnowledgeSource(

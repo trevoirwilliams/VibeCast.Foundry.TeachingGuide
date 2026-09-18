@@ -50,4 +50,9 @@ public interface IMediaAssetService
         bool isKnowledgeSource,
         string ownerId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MediaAssetSummary>> GetKnowledgeSourcesAsync(
+        IReadOnlyCollection<Guid> mediaAssetIds,
+        string ownerId,
+        CancellationToken cancellationToken = default);
 }
