@@ -8,7 +8,7 @@ public interface IGroundedBlogGenerationService
         CancellationToken cancellationToken = default);
 }
 
-public sealed record GenerateGroundedBlogRequest(IReadOnlyCollection<Guid> SourceIds);
+public sealed record GenerateGroundedBlogRequest(string Prompt);
 
 public sealed class GroundedBlogDraft
 {
@@ -27,6 +27,7 @@ public sealed class GroundedBlogDraft
     public string[] KeyTakeaways { get; set; } = [];
 
     public string[] SourceReferenceIds { get; set; } = [];
+    public GroundedEvidenceReference[] EvidenceReferences { get; set; } = [];
 }
 
 public sealed class GroundedBlogSection
@@ -34,4 +35,10 @@ public sealed class GroundedBlogSection
     public string Heading { get; set; } = string.Empty;
 
     public string Body { get; set; } = string.Empty;
+}
+
+public sealed class GroundedEvidenceReference
+{
+    public string ReferenceId { get; set; } = string.Empty;
+    public string Snippet { get; set; } = string.Empty;
 }

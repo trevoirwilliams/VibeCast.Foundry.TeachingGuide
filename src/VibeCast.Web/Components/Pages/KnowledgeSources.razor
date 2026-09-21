@@ -93,36 +93,24 @@
 </section>
 
 <section class="surface-card mt-4">
-
     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-
         <div>
-            <div class="eyebrow">
-                Grounded generation
-            </div>
-
-            <h2 class="h4 mb-1">
-                Generate blog from knowledge
-            </h2>
-
-            <p class="text-muted mb-0">
-                VibeCast will find the strongest supported topic in the selected documents and generate a blog
-                grounded only in that evidence.
-            </p>
+            <div class="eyebrow">Grounded generation</div>
+            <h2 class="h4 mb-1">Generate a blog</h2>
+            <p class="text-muted mb-0">Enter a blog idea. VibeCast will retrieve relevant evidence from your approved knowledge sources.</p>
         </div>
 
-        <span class="status-badge badge-info">
-            @selectedSourceIds.Count selected
-        </span>
-
+        <span class="status-badge badge-info">@selectedSourceIds.Count knowledge source(s)</span>
     </div>
 
     <div class="mt-3">
+        <label class="form-label" for="blog-prompt">Blog idea</label>
+        <textarea id="blog-prompt" class="form-control" rows="4" maxlength="1000" disabled="@isGenerating" @bind="blogPrompt"></textarea>
+        <div class="form-text">Describe the topic, question, or angle you want VibeCast to explore.</div>
+    </div>
 
-        <button class="btn btn-primary" disabled="@(!CanGenerate)" @onclick="GenerateBlogAsync">
-            @(isGenerating ? "Generating blog..." : "Generate blog")
-        </button>
-
+    <div class="mt-3">
+        <button class="btn btn-primary" disabled="@(!CanGenerate)" @onclick="GenerateBlogAsync">@(isGenerating ? "Generating blog..." : "Generate grounded blog")</button>
     </div>
 
     <ErrorMessage Message="@generationError" />
@@ -131,54 +119,31 @@
 @if (generatedBlog is not null)
 {
     <section class="surface-card mt-4">
+        <div class="eyebrow">Generated blog</div>
 
-        <div class="eyebrow">
-            Generated blog
-        </div>
-
-        <h2 class="mt-2">
-            @generatedBlog.Title
-        </h2>
+        <h2 class="mt-2">@generatedBlog.Title</h2>
 
         @if (!string.IsNullOrWhiteSpace(generatedBlog.Subtitle))
         {
-            <p class="lead">
-                @generatedBlog.Subtitle
-            </p>
+            <p class="lead">@generatedBlog.Subtitle</p>
         }
 
-        <p class="text-muted">
-            @generatedBlog.Summary
-        </p>
+        <p class="text-muted">@generatedBlog.Summary</p>
 
         <hr />
 
-        <p>
-            @generatedBlog.Introduction
-        </p>
+        <p>@generatedBlog.Introduction</p>
 
         @foreach (GroundedBlogSection section in generatedBlog.Sections)
         {
-            <h3 class="h5 mt-4">
-                @section.Heading
-            </h3>
-
-            <p>
-                @section.Body
-            </p>
+            <h3 class="h5 mt-4">@section.Heading</h3>
+            <p>@section.Body</p>
         }
 
-        <h3 class="h5 mt-4">
-            Conclusion
-        </h3>
+        <h3 class="h5 mt-4">Conclusion</h3>
+        <p>@generatedBlog.Conclusion</p>
 
-        <p>
-            @generatedBlog.Conclusion
-        </p>
-
-        <h3 class="h5 mt-4">
-            Key takeaways
-        </h3>
+        <h3 class="h5 mt-4">Key takeaways</h3>
 
         <ul>
             @foreach (string takeaway in generatedBlog.KeyTakeaways)
@@ -187,23 +152,25 @@
             }
         </ul>
 
-        <div class="architecture-callout mt-4">
+        @if (generatedBlog.EvidenceReferences.Length > 0)
+        {
+            <div class="mt-3">
+                @foreach (GroundedEvidenceReference reference in generatedBlog.EvidenceReferences)
+                {
+                    <div class="border rounded p-3 mb-2">
+                        <div class="fw-semibold">
+                            Evidence @reference.ReferenceId
+                        </div>
 
-            <div>
-                <strong>
-                    Evidence references
-                </strong>
-
-                <p class="mb-0">
-                    @string.Join(", ", generatedBlog.SourceReferenceIds.Select(reference => $"Ref {reference}"))
-                </p>
+                        <div class="text-muted small mt-1">
+                            @reference.Snippet
+                        </div>
+                    </div>
+                }
             </div>
-
-        </div>
-
+        }
     </section>
 }
-
 @code {
     private IReadOnlyList<MediaAssetSummary> sources = [];
     private bool isLoading;
@@ -218,13 +185,11 @@
     private string? retrievalError;
 
     private bool isGenerating;
-    private string generationError;
+    private string? generationError;
     private GroundedBlogDraft? generatedBlog;
+    private string blogPrompt = string.Empty;
 
-    private bool CanGenerate => 
-      selectedSourceIds.Count > 0 &&
-      !isGenerating &&
-      !string.IsNullOrWhiteSpace(ownerId);
+    private bool CanGenerate => selectedSourceIds.Count > 0 && !isGenerating && !string.IsNullOrWhiteSpace(ownerId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -284,7 +249,7 @@
 
     private async Task GenerateBlogAsync()
     {
-        if (!CanGenerate || string.IsNullOrWhiteSpace(ownerId))
+        if (!CanGenerate)
         {
             return;
         }
@@ -295,21 +260,18 @@
 
         try
         {
-            GenerateGroundedBlogRequest request = new(selectedSourceIds.ToArray());
-
+            GenerateGroundedBlogRequest request = new(blogPrompt.Trim());
             generatedBlog = await BlogGenerationService.GenerateAsync(request, ownerId);
         }
         catch (SafeApplicationException exception)
         {
             Logger.LogWarning(exception, "Grounded blog generation could not be completed.");
-
             generationError = exception.Message;
         }
         catch (Exception exception)
         {
             Logger.LogError(exception, "Grounded blog generation failed.");
-
-            generationError = "VibeCast could not generate a blog from the selected sources.";
+            generationError = "VibeCast could not generate a grounded blog.";
         }
         finally
         {
