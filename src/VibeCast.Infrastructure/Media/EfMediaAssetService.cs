@@ -448,8 +448,7 @@ public sealed class EfMediaAssetService(
                 nameof(ownerId));
         }
 
-        await using VibeCastDbContext db =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         List<MediaAssetSummary> sources =
             await db.MediaAssets
@@ -457,6 +456,43 @@ public sealed class EfMediaAssetService(
                 .Where(asset =>
                     asset.OwnerId == ownerId &&
                     asset.IsKnowledgeSource)
+                .Select(asset => new MediaAssetSummary(
+                    asset.Id,
+                    asset.EpisodeId,
+                    asset.OriginalFileName,
+                    asset.ContentType,
+                    asset.SizeBytes,
+                    asset.Status,
+                    asset.IsKnowledgeSource,
+                    asset.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        return sources
+            .OrderByDescending(source => source.CreatedAtUtc)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<MediaAssetSummary>> ListKnowledgeSourcesAsync(
+        IReadOnlyCollection<Guid> mediaAssetIds,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources =
+            await db.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.IsKnowledgeSource &&
+                    mediaAssetIds.Contains(asset.Id))
                 .Select(asset => new MediaAssetSummary(
                     asset.Id,
                     asset.EpisodeId,
