@@ -8,7 +8,7 @@ public interface IGroundedBlogGenerationService
         CancellationToken cancellationToken = default);
 }
 
-public sealed record GenerateGroundedBlogRequest(string Prompt);
+public sealed record GenerateGroundedBlogRequest(string Prompt, IReadOnlyCollection<Guid> SourceIds);
 
 public sealed class GroundedBlogDraft
 {
