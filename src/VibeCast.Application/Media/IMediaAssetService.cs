@@ -55,4 +55,5 @@ public interface IMediaAssetService
         IReadOnlyCollection<Guid> mediaAssetIds,
         string ownerId,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MediaAssetSummary>> ListKnowledgeSourcesAsync(IReadOnlyCollection<Guid> mediaAssetIds, string ownerId, CancellationToken cancellationToken = default);
 }

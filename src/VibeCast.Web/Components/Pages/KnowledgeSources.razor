@@ -52,7 +52,7 @@
                   <input class="form-check-input"
                           type="checkbox"
                           checked="@selectedSourceIds.Contains(source.Id)"
-                          disabled="@isRetrieving"
+                          disabled="@isGenerating"
                           @onchange="args => ToggleSource(source.Id, args)" />
               </td>
               <td>
@@ -260,7 +260,7 @@
 
         try
         {
-            GenerateGroundedBlogRequest request = new(blogPrompt.Trim());
+            GenerateGroundedBlogRequest request = new(blogPrompt.Trim(), selectedSourceIds.ToArray());
             generatedBlog = await BlogGenerationService.GenerateAsync(request, ownerId);
         }
         catch (SafeApplicationException exception)

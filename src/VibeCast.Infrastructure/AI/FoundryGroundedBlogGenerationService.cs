@@ -69,7 +69,17 @@ public sealed class FoundryGroundedBlogGenerationService(
             throw new SafeApplicationException("The blog idea cannot exceed 1,000 characters.");
         }
 
-        IReadOnlyList<MediaAssetSummary> knowledgeSources = await mediaAssetService.ListKnowledgeSourcesAsync(ownerId, cancellationToken);
+        if (request.SourceIds is null || request.SourceIds.Count == 0)
+        {
+            throw new SafeApplicationException("Select at least one knowledge source.");
+        }
+
+        if (request.SourceIds.Contains(Guid.Empty))
+        {
+            throw new SafeApplicationException("A selected knowledge source is invalid.");
+        }
+
+        IReadOnlyList<MediaAssetSummary> knowledgeSources = await mediaAssetService.ListKnowledgeSourcesAsync(request.SourceIds, ownerId, cancellationToken);
 
         if (knowledgeSources.Count == 0)
         {
