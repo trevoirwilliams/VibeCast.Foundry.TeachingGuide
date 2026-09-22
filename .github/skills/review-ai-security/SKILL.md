@@ -1,11 +1,11 @@
 ---
 name: review-ai-security
-description: Review VibeCast AI-related changes for security, privacy, prompt injection, authorization, data leakage, unsafe tool execution, and operational weaknesses.
+description: Review VibeCast AI-related changes for security, privacy, prompt injection, authorization, evidence scope, unsafe tool execution, and operational weaknesses.
 ---
 
 # Review AI Security
 
-Review the diff and trace every trust boundary.
+Trace every trust boundary and focus on behavior that could violate an application guarantee.
 
 Check for:
 
@@ -13,25 +13,27 @@ Check for:
 - prompts or responses written to logs;
 - direct provider calls from UI code;
 - missing authentication or ownership checks;
+- selected knowledge sources not fully constrained to the authenticated owner;
 - tools executable without explicit authorization;
 - model-selected URLs, commands, paths, or resource identifiers;
 - unvalidated structured output;
-- unlimited retries or output;
-- missing cancellation or timeout;
+- unlimited repair or retry loops;
 - retrieval content treated as trusted instructions;
-- citations that are not tied to retrieved evidence;
-- uploaded filenames used as filesystem paths;
-- unbounded queues or concurrency;
+- citations or evidence requirements not tied to approved application state;
+- partial retrieval success silently widening or changing user-selected scope;
+- uploaded filenames or claimed MIME types trusted without content validation;
 - unsafe HTML or Markdown rendering;
-- sensitive data sent to an unintended provider or geography;
-- tests that require production credentials.
+- sensitive data sent to an unintended provider or geography.
 
-Report findings using:
+For every material finding, identify a deterministic regression test when the behavior is observable.
 
-- Severity: Critical, High, Medium, Low
+Report:
+
+- Severity
 - File and line
-- Exploit or failure scenario
+- Trust boundary
+- Failure or abuse scenario
 - Required remediation
-- Verification test
+- Regression test
 
 Do not edit production code while using this skill unless explicitly instructed.
