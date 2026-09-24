@@ -227,6 +227,13 @@ public static class DependencyInjection
                     functionClient.MaximumConsecutiveErrorsPerRequest = 0;
                     functionClient.AllowConcurrentInvocation = false;
                 })
+            .UseOpenTelemetry(
+                loggerFactory: loggerFactory,
+                sourceName: VibeCastAiTelemetry.SourceName,
+                configure: telemetry =>
+                {
+                    telemetry.EnableSensitiveData = false;
+                })
             .Build(serviceProvider);
         });
 

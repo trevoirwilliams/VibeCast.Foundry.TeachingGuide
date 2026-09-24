@@ -14,6 +14,7 @@
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\VibeCast.ServiceDefaults\VibeCast.ServiceDefaults.csproj" />
     <ProjectReference Include="..\VibeCast.Application\VibeCast.Application.csproj" />
     <ProjectReference Include="..\VibeCast.Infrastructure\VibeCast.Infrastructure.csproj" />
   </ItemGroup>
