@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VibeCast.Infrastructure.Data;
 
 #nullable disable
@@ -11,31 +12,35 @@ using VibeCast.Infrastructure.Data;
 namespace VibeCast.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(VibeCastDbContext))]
-    [Migration("20260728203719_AddEpisodeEditorialPolicies")]
-    partial class AddEpisodeEditorialPolicies
+    [Migration("20261001044539_InitialPostgreSql")]
+    partial class InitialPostgreSql
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
@@ -50,17 +55,19 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("RoleId")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -73,17 +80,19 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -95,17 +104,17 @@ namespace VibeCast.Infrastructure.Data.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
@@ -117,10 +126,10 @@ namespace VibeCast.Infrastructure.Data.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
                 {
                     b.Property<string>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("RoleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("UserId", "RoleId");
 
@@ -132,16 +141,16 @@ namespace VibeCast.Infrastructure.Data.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
                     b.Property<string>("UserId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Value")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
@@ -152,56 +161,77 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AcceptedPlanJson")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<string>("Language")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.Property<string>("Objective")
                         .IsRequired()
                         .HasMaxLength(600)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(600)");
 
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("PlanFormatPolicyVersion")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset?>("PlanGeneratedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PlanPromptVersion")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("PlanRepairAttempted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PlanRepairPromptVersion")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<DateOnly?>("PlannedPublishDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<DateTimeOffset?>("ScheduledForUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("TargetAudience")
                         .IsRequired()
                         .HasMaxLength(160)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(160)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Tone")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -214,51 +244,51 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AudienceKeyword")
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("EffectiveFromUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("EffectiveToUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PacingGuidance")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("Priority")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Rationale")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("TargetDurationMinutes")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Tone")
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Version")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.HasKey("Id");
 
@@ -270,44 +300,110 @@ namespace VibeCast.Infrastructure.Data.Migrations
                     b.ToTable("EpisodeFormatPolicies", (string)null);
                 });
 
-            modelBuilder.Entity("VibeCast.Domain.Jobs.ProcessingJob", b =>
+            modelBuilder.Entity("VibeCast.Domain.Episodes.EpisodeSupportingSource", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset?>("CompletedAtUtc")
-                        .HasColumnType("TEXT");
+                    b.Property<DateTimeOffset>("AnalyzedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AnalyzerId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
+                    b.Property<Guid>("EpisodeId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("JobType")
+                    b.Property<string>("MatchedEvidenceRequirementsJson")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("RelevancePromptVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("RelevanceRationale")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("RelevantPointsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EpisodeId");
+
+                    b.HasIndex("MediaAssetId")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerId", "EpisodeId");
+
+                    b.ToTable("EpisodeSupportingSources", (string)null);
+                });
+
+            modelBuilder.Entity("VibeCast.Domain.Jobs.ProcessingJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("JobType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.Property<DateTimeOffset?>("StartedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("SubjectReference")
                         .HasMaxLength(512)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(512)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -320,47 +416,99 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AcceptedAltText")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTimeOffset?>("ArtworkAcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ArtworkAnalyzedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ArtworkPromptVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ArtworkSummary")
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)");
+
+                    b.Property<string>("ArtworkVisibleText")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(128)");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("EpisodeId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("GeneratedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GenerationModelDeployment")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("GenerationPromptVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("IsKnowledgeSource")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(260)");
 
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("ProposedAltText")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
                     b.Property<long>("SizeBytes")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("StorageKey")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("TranscribedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TranscriptText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TranscriptionLocale")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
                     b.HasIndex("StorageKey")
                         .IsUnique();
+
+                    b.HasIndex("OwnerId", "IsKnowledgeSource");
 
                     b.ToTable("MediaAssets", (string)null);
                 });
@@ -369,28 +517,28 @@ namespace VibeCast.Infrastructure.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("IdentityUserId")
                         .IsRequired()
                         .HasMaxLength(450)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(450)");
 
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -403,58 +551,58 @@ namespace VibeCast.Infrastructure.Data.Migrations
             modelBuilder.Entity("VibeCast.Infrastructure.Data.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
@@ -517,6 +665,35 @@ namespace VibeCast.Infrastructure.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("VibeCast.Domain.Episodes.EpisodeSupportingSource", b =>
+                {
+                    b.HasOne("VibeCast.Domain.Episodes.Episode", "Episode")
+                        .WithMany("SupportingSources")
+                        .HasForeignKey("EpisodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VibeCast.Domain.Media.MediaAsset", "MediaAsset")
+                        .WithMany("SupportingSources")
+                        .HasForeignKey("MediaAssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Episode");
+
+                    b.Navigation("MediaAsset");
+                });
+
+            modelBuilder.Entity("VibeCast.Domain.Episodes.Episode", b =>
+                {
+                    b.Navigation("SupportingSources");
+                });
+
+            modelBuilder.Entity("VibeCast.Domain.Media.MediaAsset", b =>
+                {
+                    b.Navigation("SupportingSources");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,5 +1,11 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddProject<Projects.VibeCast_Web>("vibecast-web");
+var postgres = builder.AddPostgres("postgres")
+        .WithDataVolume();
+var vibecastDatabase = postgres.AddDatabase("vibecast");
+
+builder.AddProject<Projects.VibeCast_Web>("vibecast-web")
+     .WithReference(vibecastDatabase)
+     .WaitFor(vibecastDatabase);
 
 builder.Build().Run();

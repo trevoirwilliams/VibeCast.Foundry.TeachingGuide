@@ -67,20 +67,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(
-    builder.Configuration.GetConnectionString("VibeCast")?.Replace("Data Source=", string.Empty, StringComparison.OrdinalIgnoreCase)
-        ?? ".vibecast/vibecast.db"))!);
-
-await using (var scope = app.Services.CreateAsyncScope())
+if(app.Environment.IsDevelopment())
 {
-    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<VibeCastDbContext>>();
-    await using var db = await factory.CreateDbContextAsync();
-    await db.Database.MigrateAsync();
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    IDbContextFactory<VibeCastDbContext> factory = scope.ServiceProvider
+            .GetRequiredService<IDbContextFactory<VibeCastDbContext>>();
 
-    if (app.Environment.IsDevelopment())
-    {
-        await SeedData.InitializeAsync(scope.ServiceProvider);
-    }
+    await using VibeCastDbContext db = await factory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+    await SeedData.InitializeAsync(scope.ServiceProvider);
 }
 
 app.UseHttpsRedirection();

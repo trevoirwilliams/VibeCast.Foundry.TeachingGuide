@@ -106,7 +106,7 @@ public static class Extensions
     public static WebApplication MapDefaultEndpoints(
         this WebApplication app)
     {
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
         {
             app.MapHealthChecks(HealthEndpointPath);
 

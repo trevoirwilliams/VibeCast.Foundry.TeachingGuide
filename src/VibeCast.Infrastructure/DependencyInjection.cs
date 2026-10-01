@@ -36,9 +36,10 @@ public static class DependencyInjection
     public static IServiceCollection AddVibeCastInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("VibeCast")
-            ?? "Data Source=.vibecast/vibecast.db";
+            ?? throw new InvalidOperationException(
+        "The VibeCast PostgreSQL connection string is not configured.");
 
-        services.AddDbContextFactory<VibeCastDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContextFactory<VibeCastDbContext>(options => options.UseNpgsql(connectionString));
 
         services.AddOptions<BlobStorageOptions>()
             .Bind(configuration.GetSection(BlobStorageOptions.SectionName))
