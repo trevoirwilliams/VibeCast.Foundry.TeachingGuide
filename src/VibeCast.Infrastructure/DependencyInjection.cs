@@ -41,11 +41,6 @@ public static class DependencyInjection
 
         services.AddDbContextFactory<VibeCastDbContext>(options => options.UseNpgsql(connectionString));
 
-        services.AddOptions<BlobStorageOptions>()
-            .Bind(configuration.GetSection(BlobStorageOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
         services.AddOptions<KnowledgeStorageOptions>()
             .Bind(configuration.GetSection(KnowledgeStorageOptions.SectionName))
             .ValidateDataAnnotations()
@@ -68,12 +63,6 @@ public static class DependencyInjection
                 "KnowledgeStorage:SearchEndpoint must be an absolute HTTPS URI.")
             .ValidateOnStart();
 
-
-        services.AddOptions<BackgroundJobsOptions>()
-            .Bind(configuration.GetSection(BackgroundJobsOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
         services.AddOptions<FoundryOptions>()
             .Bind(configuration.GetSection(FoundryOptions.SectionName))
             .ValidateDataAnnotations()
@@ -90,7 +79,15 @@ public static class DependencyInjection
             .ValidateOnStart();
 
 
-        services.AddSingleton<IBlobStorage, LocalBlobStorage>();
+        services.AddSingleton<IBlobStorage>(provider =>
+        {
+            BlobContainerClient containerClient = provider.GetRequiredService<BlobContainerClient>();
+            ILogger<AzureBlobStorage> logger = provider.GetRequiredService<ILogger<AzureBlobStorage>>();
+
+            return new AzureBlobStorage(containerClient, logger);
+        });
+
+
         services.AddSingleton<BlobServiceClient>(serviceProvider =>
         {
             KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
@@ -141,9 +138,6 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<IKnowledgeSourceStorage, AzureBlobKnowledgeSourceStorage>();
-
-        services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
-        services.AddHostedService<BackgroundJobWorker>();
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<SupportingSourceAssessmentValidationRequest>, SupportingSourceAssessmentValidator>();

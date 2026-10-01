@@ -11,10 +11,14 @@ using VibeCast.Infrastructure.Data;
 using VibeCast.ServiceDefaults;
 using VibeCast.Web;
 using VibeCast.Web.Components;
+using VibeCast.Web.Security;
 using VibeCast.Web.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
+
+builder.AddKeyedAzureBlobContainerClient("media");
+builder.AddKeyedAzureBlobContainerClient("data-protection");
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -57,8 +61,12 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddVibeCastInfrastructure(builder.Configuration);
+builder.AddVibeCastDataProtection();
 
 var app = builder.Build();
+
+await app.EnsureDevelopmentDataProtectionBlobAsync();
+
 app.MapDefaultEndpoints();
 
 if (!app.Environment.IsDevelopment())

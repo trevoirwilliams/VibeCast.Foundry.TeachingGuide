@@ -61,7 +61,7 @@ public sealed class EfMediaAssetService(
 
         try
         {
-            blob = await blobStorage.SaveAsync(content, displayName, contentType, cancellationToken);
+            blob = await blobStorage.SaveAsync(content, ownerId, displayName, contentType, cancellationToken);
 
             await using var storedContent = await blobStorage.OpenReadAsync(blob.StorageKey, cancellationToken);
             var signatureOk = await validator.HasExpectedSignatureAsync(storedContent, displayName, cancellationToken);

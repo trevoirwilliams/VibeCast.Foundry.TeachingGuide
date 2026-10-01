@@ -134,6 +134,7 @@ public class FoundryEpisodeArtworkGenerationService(
         {
             storedBlob = await blobStorage.SaveAsync(
                     imageStream,
+                    ownerId,
                     fileName,
                     ContentType,
                     cancellationToken);
