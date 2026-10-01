@@ -6,4 +6,5 @@
 .vscode
 TestResults
 artifacts
+.vibecast
 *.db
