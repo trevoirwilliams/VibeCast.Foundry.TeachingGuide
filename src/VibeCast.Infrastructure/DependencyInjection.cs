@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Text;
 using System.Threading.RateLimiting;
 using Azure;
 using Azure.AI.ContentUnderstanding;
@@ -81,7 +82,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IBlobStorage>(provider =>
         {
-            BlobContainerClient containerClient = provider.GetRequiredService<BlobContainerClient>();
+            BlobContainerClient containerClient = provider.GetRequiredKeyedService<BlobContainerClient>("media");
             ILogger<AzureBlobStorage> logger = provider.GetRequiredService<ILogger<AzureBlobStorage>>();
 
             return new AzureBlobStorage(containerClient, logger);
@@ -138,7 +139,7 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<IKnowledgeSourceStorage, AzureBlobKnowledgeSourceStorage>();
-
+        
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<SupportingSourceAssessmentValidationRequest>, SupportingSourceAssessmentValidator>();
         services.AddSingleton<MediaUploadValidator>();

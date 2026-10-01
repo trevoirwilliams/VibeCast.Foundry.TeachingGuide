@@ -5,7 +5,12 @@ var postgres = builder.AddPostgres("postgres")
 var vibecastDatabase = postgres.AddDatabase("vibecast");
 
 var storage = builder.AddAzureStorage("storage")
-        .RunAsEmulator(emulator => emulator.WithDataVolume());
+        .RunAsEmulator(emulator => {
+            emulator.WithDataVolume()
+                .WithBlobPort(10000)
+                .WithQueuePort(10001)
+                .WithTablePort(10002);
+        });
 var mediaStorage = storage.AddBlobContainer(
         "media",
         "vibecast-media");
