@@ -8,6 +8,7 @@ using OpenTelemetry.Trace;
 using VibeCast.Application.Media;
 using VibeCast.Infrastructure;
 using VibeCast.Infrastructure.Data;
+using VibeCast.ServiceDefaults;
 using VibeCast.Web;
 using VibeCast.Web.Components;
 using VibeCast.Web.Telemetry;
@@ -56,36 +57,6 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddVibeCastInfrastructure(builder.Configuration);
-builder.Services.AddHealthChecks();
-
-var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService(
-        serviceName: VibeCastTelemetry.ServiceName,
-        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"))
-    .WithTracing(tracing =>
-    {
-        tracing
-            .AddSource(VibeCastTelemetry.ActivitySourceName)
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
-
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-        {
-            tracing.AddOtlpExporter(options => options.Endpoint = endpoint);
-        }
-    })
-    .WithMetrics(metrics =>
-    {
-        metrics
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
-
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-        {
-            metrics.AddOtlpExporter(options => options.Endpoint = endpoint);
-        }
-    });
 
 var app = builder.Build();
 app.MapDefaultEndpoints();
@@ -118,7 +89,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapHealthChecks("/health");
 app.MapRazorPages();
 app.MapGet("/media/{mediaAssetId:guid}/content",
     async (

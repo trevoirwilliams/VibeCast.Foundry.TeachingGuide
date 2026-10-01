@@ -116,14 +116,14 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<BlobContainerClient>(serviceProvider =>
-            {
-                KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
-                        .Value;
+        {
+            KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                    .Value;
 
-                BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
+            BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
 
-                return blobServiceClient.GetBlobContainerClient(options.ContainerName);
-            });
+            return blobServiceClient.GetBlobContainerClient(options.ContainerName);
+        });
 
         services.AddSingleton<KnowledgeBaseRetrievalClient>(
             serviceProvider =>
@@ -209,14 +209,14 @@ public static class DependencyInjection
                .GetChatClient(options.ChatModelDeployment)
                .AsIChatClient();
 
-            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
-                providerClient,
-                logger);
-
             IChatClient resilientProviderClient = new ChatResilienceClient(
                 providerClient,
                 TimeSpan.FromSeconds(options.ChatTimeoutSeconds),
                 rateLimiter);
+
+            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
+                resilientProviderClient,
+                logger);
 
             return new ChatClientBuilder(monitoredProviderClient)
             .UseFunctionInvocation(
@@ -237,7 +237,7 @@ public static class DependencyInjection
             .Build(serviceProvider);
         });
 
-        #pragma warning disable MEAI001
+#pragma warning disable MEAI001
         services.AddSingleton<IImageGenerator>(serviceProvider =>
         {
             FoundryOptions options = serviceProvider
