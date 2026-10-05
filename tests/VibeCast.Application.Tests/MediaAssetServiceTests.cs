@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using VibeCast.Application.Common;
 using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 using VibeCast.Domain.Media;
@@ -65,6 +66,73 @@ public sealed class MediaAssetServiceTests
             new[] { "research.pdf", "notes.txt" },
             sources.Select(source => source.OriginalFileName).ToArray());
         Assert.IsTrue(sources.All(source => source.EpisodeId is null));
+    }
+
+    [TestMethod]
+    public async Task GetKnowledgeSourcesAsync_WhenAnySelectedSourceIsUnavailable_RejectsEntireSelection()
+    {
+        await using SqliteConnection connection =
+            new("DataSource=:memory:");
+
+        await connection.OpenAsync();
+
+        DbContextOptions<VibeCastDbContext> options =
+            new DbContextOptionsBuilder<VibeCastDbContext>()
+                .UseSqlite(connection)
+                .Options;
+
+        Guid ownedSourceId;
+        Guid foreignSourceId;
+
+        await using (var db = new VibeCastDbContext(options))
+        {
+            await db.Database.EnsureCreatedAsync();
+
+            MediaAsset ownedSource =
+                CreateAsset(
+                    null,
+                    "owner-1",
+                    "owned.pdf",
+                    "application/pdf");
+
+            MediaAsset foreignSource =
+                CreateAsset(
+                    null,
+                    "owner-2",
+                    "foreign.pdf",
+                    "application/pdf");
+
+            ownedSource.SetKnowledgeSource(true);
+            foreignSource.SetKnowledgeSource(true);
+
+            ownedSourceId = ownedSource.Id;
+            foreignSourceId = foreignSource.Id;
+
+            db.MediaAssets.AddRange(
+                ownedSource,
+                foreignSource);
+
+            await db.SaveChangesAsync();
+        }
+
+        var service = new EfMediaAssetService(
+            new TestDbContextFactory(options),
+            blobStorage: null!,
+            knowledgeSourceStorage: null!,
+            new MediaUploadValidator(),
+            artworkValidator: null!,
+            logger: null!);
+
+        SafeApplicationException exception =
+            await Assert.ThrowsExactlyAsync<SafeApplicationException>(
+                () =>
+                    service.GetKnowledgeSourcesAsync(
+                        [ownedSourceId, foreignSourceId],
+                        "owner-1"));
+
+        StringAssert.Contains(
+            exception.Message,
+            "unavailable");
     }
 
     private static MediaAsset CreateAsset(
