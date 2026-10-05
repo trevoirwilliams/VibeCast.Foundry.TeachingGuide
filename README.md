@@ -1,5 +1,7 @@
-# VibeCast Teaching Guide
+# VibeCast — maintenance branch
 
-Course teaching repository for **Generative AI for .NET Developers with Microsoft Foundry**.
+**Branch:** `copilot/fix-github-actions-build-job`
 
-The `main` branch is intentionally minimal. Teaching checkpoints and starter states are maintained on dedicated section branches.
+This is a maintenance branch, not a learner start, practice or completed checkpoint. Its inspected tree currently contains only this README; it has no solution, application projects or GitHub Actions workflow files. The branch name alone is not evidence of an implemented CI fix.
+
+For the runnable course code, open the [course branch index](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/main) and select the relevant section checkpoint. Build and test commands belong in a checkout containing the matching solution and projects.
