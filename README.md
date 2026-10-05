@@ -1,89 +1,74 @@
-# VibeCast — Section 04 AI Client Starter
+# VibeCast — Build Multimodal AI Features with Microsoft Foundry
 
-This branch contains the production-shaped starter application for **Section 04: Foundations of Enterprise Generative AI for .NET**.
+**Branch:** `section-06-episode-media-start`  
+**Checkpoint:** Section starting checkpoint
 
-The application presents a complete authenticated product shell so demonstrations can begin at the AI integration boundary rather than spending course time on ordinary Blazor, CRUD, database, and page-layout work.
+Analyze artwork, generate validated promotional images, transcribe recordings and assess supporting documents for an episode.
 
-## Included
+## What this checkpoint contains
 
-- .NET 10 and C# 14
-- Blazor Web App using Interactive Server rendering
-- ASP.NET Core Identity with SQLite
-- Authenticated application shell with grouped navigation and responsive layout
-- Dashboard, episode list, episode brief form, and tabbed episode workspace
-- Media library and upload/processing form
-- Processing jobs, knowledge sources, editorial workflows, and approval queue
-- Evaluation, observability, and settings surfaces
-- EF Core context, initial migration, and development seed data
-- Episode, media asset, processing job, and user profile domain entities
-- Local blob-storage implementation behind `IBlobStorage`
-- Bounded channel-based background-job queue and hosted worker
-- Strongly typed configuration options
-- DataAnnotations plus application-level validators
-- Structured logging and OpenTelemetry tracing/metrics baseline
-- Multi-stage Dockerfile and Docker Compose configuration
-- Domain, application, and integration test projects
-- GitHub Actions CI
+The structured planner, domain validation, bounded repair, editorial-policy tool and accepted-plan persistence from Section 5 are present.
 
-## UI-scaffold boundary
+The current section's new implementation is the work to add as you follow the mapped lessons below. Files marked “introduced later” are intentionally absent. Existing files may still require changes during the section.
 
-The authenticated pages intentionally use presentation data and visual states. They do **not** invoke EF Core business persistence, blob storage, background jobs, AI providers, retrieval, agents, evaluations, or telemetry queries.
+## Lesson and code map
 
-The existing infrastructure remains available for later course checkpoints, but the Section 04 pages expose clear seams where learners will add:
+| Current Udemy lesson | Relevant code in this checkpoint | Engineering objective |
+|---|---|---|
+| Implement Foundry Image Understanding Model Call | `src/VibeCast.Infrastructure/AI/FoundryArtworkAnalysisService.cs` — introduced later in this section | Combine image content and episode context; return typed analysis. |
+| Generate and Validate Promotional Artwork | `src/VibeCast.Infrastructure/AI/FoundryEpisodeArtworkGenerationService.cs` — introduced later in this section | Generate artwork and validate it before storage. |
+| Transcribe and Attach an Episode Recording | `src/VibeCast.Infrastructure/AI/FoundryEpisodeTranscriptionService.cs` — introduced later in this section | Transcribe owned episode audio and persist the result. |
+| Add Content Understanding Configurations and Services | `src/VibeCast.Infrastructure/AI/FoundryEpisodeResourceAnalysisService.cs` — introduced later in this section | Extract document content and assess relevance to the accepted plan. |
 
-- `IChatClient` and `IEmbeddingGenerator`
-- Microsoft Foundry connectivity
-- Structured output, validation, and repair
-- Multimodal processing
-- RAG ingestion and retrieval
-- Microsoft Agent Framework workflows
-- Human approval and durable execution
-- Evaluation and OpenTelemetry evidence
+The map follows the live Udemy lesson titles and inspected code. Lecture numbers can change when practice articles are inserted. Exact spoken sequencing and timestamps have not been verified against the reattached transcript archive.
 
-## Authenticated routes
+## Setup for this branch
 
-- `/dashboard`
-- `/episodes`
-- `/episodes/create`
-- `/episodes/{id}`
-- `/media`
-- `/media/upload`
-- `/jobs`
-- `/knowledge`
-- `/knowledge/create`
-- `/workflows`
-- `/workflows/{id}`
-- `/approvals`
-- `/evaluations`
-- `/observability`
-- `/settings`
+Use **.NET 10 / C# 14** and the package versions checked into this branch. Review [Directory.Packages.props](Directory.Packages.props) before changing dependencies. Restore/build the checkpoint before diagnosing a cloud issue.
 
-## Run locally
+The web application uses SQLite and LocalBlobStorage for media in this checkpoint. Their configured paths can be relative to the process/content root; inspect the branch's appsettings and options rather than assuming every branch shares the same data directory. Save your work before changing checkpoints, and use a database appropriate to that branch's migrations.
+
+Supply Foundry configuration to the web project using .NET user secrets or environment variables. `Foundry:ProjectEndpoint` is the repository's property name: its value is passed to AzureOpenAIClient, so use the endpoint expected by that client, not an arbitrary portal/project URL. The existing adapter uses `Foundry:ApiKey` and deployment names from the branch options.
 
 ```bash
-dotnet restore
-dotnet build --configuration Release
-dotnet run --project src/VibeCast.Web
+dotnet dev-certs https --trust
+dotnet restore VibeCast.sln
+dotnet build VibeCast.sln --configuration Release --no-restore
+dotnet run --project src/VibeCast.Web --launch-profile https
 ```
 
-Development seed account:
+### Configuration reference
 
-- Email: `instructor@vibecast.local`
-- Password: `VibeCast!12345`
+| Options file | Settings declared by this checkpoint |
+|---|---|
+| [src/VibeCast.Infrastructure/Options/BlobStorageOptions.cs](src/VibeCast.Infrastructure/Options/BlobStorageOptions.cs) | `RootPath`, `Capacity` |
+| [src/VibeCast.Infrastructure/Options/FoundryOptions.cs](src/VibeCast.Infrastructure/Options/FoundryOptions.cs) | `ProjectEndpoint`, `ChatModelDeployment`, `ApiKey`, `MaxRetries` |
 
-The seed account is for local teaching use only. Replace or disable it outside the Development environment.
+Use the matching configuration section names declared in these files. Environment variables use double underscores instead of colons. Keep credentials outside committed files. Startup validation may require settings for registered services even if your current task calls only one of them.
 
-## Data locations
+The local teaching account is defined in [SeedData.cs](src/VibeCast.Infrastructure/Data/SeedData.cs). Use it only in the local Development environment. [Program.cs](src/VibeCast.Web/Program.cs) and [DependencyInjection.cs](src/VibeCast.Infrastructure/DependencyInjection.cs) are authoritative for startup and registered services.
 
-- SQLite: `.vibecast/vibecast.db`
-- Uploaded media: `.vibecast/blobs`
-
-## Docker
+## Verify the learning objective
 
 ```bash
-docker compose up --build
+dotnet test VibeCast.sln --configuration Release --no-build
 ```
 
-## Branch progression
+Establish the starting test result before adding the section's behavior. Then test the new behavior independently of live AI where possible. A starting branch is not expected to perform features introduced later in the section.
 
-See [`docs/branch-strategy.md`](docs/branch-strategy.md). The corresponding completion checkpoint should be created as `section-04-ai-client-complete` after the AI client pipeline is implemented.
+Check an owned image, a generated PNG, a short audio clip and a relevant/irrelevant document. Confirm invalid or foreign-owned assets do not become accepted episode content.
+
+## Checkpoint boundaries
+
+- Navigation pages are not a feature checklist. Workflow, approval, evaluation or observability screens can remain presentation scaffolds; inspect their service calls before treating them as implemented capabilities.
+- The channel queue is local and non-durable. Its presence does not provide a hosted message broker or durable execution.
+
+## Related checkpoints
+
+- [section-06-episode-media-complete](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-06-episode-media-complete)
+- [section-06-episode-media-complete-ui](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-06-episode-media-complete-ui)
+- [section-06-episode-media-practice](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-06-episode-media-practice)
+- [section-06-episode-media-start](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-06-episode-media-start) — this branch
+- [section-06-episode-media-start-ui](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-06-episode-media-start-ui)
+
+Return to the [course branch index](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/main). The earlier generic branch-strategy/local-development documents may describe older snapshots; use this README and the linked source files for this branch's current setup.
