@@ -6,10 +6,10 @@ RUN dotnet publish src/VibeCast.Web/VibeCast.Web.csproj -c Release -o /app/publi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-RUN addgroup --system vibecast && adduser --system --ingroup vibecast vibecast
+
 COPY --from=build /app/publish .
-RUN mkdir -p /app/.vibecast && chown -R vibecast:vibecast /app
-USER vibecast
-ENV ASPNETCORE_URLS=http://+:8080
+
+USER $APP_UID
+ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "VibeCast.Web.dll"]

@@ -8,12 +8,17 @@ using OpenTelemetry.Trace;
 using VibeCast.Application.Media;
 using VibeCast.Infrastructure;
 using VibeCast.Infrastructure.Data;
+using VibeCast.ServiceDefaults;
 using VibeCast.Web;
 using VibeCast.Web.Components;
+using VibeCast.Web.Security;
 using VibeCast.Web.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
+
+builder.AddKeyedAzureBlobContainerClient("media");
+builder.AddKeyedAzureBlobContainerClient("data-protection");
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -56,38 +61,12 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddVibeCastInfrastructure(builder.Configuration);
-builder.Services.AddHealthChecks();
-
-var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService(
-        serviceName: VibeCastTelemetry.ServiceName,
-        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"))
-    .WithTracing(tracing =>
-    {
-        tracing
-            .AddSource(VibeCastTelemetry.ActivitySourceName)
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
-
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-        {
-            tracing.AddOtlpExporter(options => options.Endpoint = endpoint);
-        }
-    })
-    .WithMetrics(metrics =>
-    {
-        metrics
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
-
-        if (Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var endpoint))
-        {
-            metrics.AddOtlpExporter(options => options.Endpoint = endpoint);
-        }
-    });
+builder.AddVibeCastDataProtection();
 
 var app = builder.Build();
+
+await app.EnsureDevelopmentDataProtectionBlobAsync();
+
 app.MapDefaultEndpoints();
 
 if (!app.Environment.IsDevelopment())
@@ -96,20 +75,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(
-    builder.Configuration.GetConnectionString("VibeCast")?.Replace("Data Source=", string.Empty, StringComparison.OrdinalIgnoreCase)
-        ?? ".vibecast/vibecast.db"))!);
-
-await using (var scope = app.Services.CreateAsyncScope())
+if(app.Environment.IsDevelopment())
 {
-    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<VibeCastDbContext>>();
-    await using var db = await factory.CreateDbContextAsync();
-    await db.Database.MigrateAsync();
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    IDbContextFactory<VibeCastDbContext> factory = scope.ServiceProvider
+            .GetRequiredService<IDbContextFactory<VibeCastDbContext>>();
 
-    if (app.Environment.IsDevelopment())
-    {
-        await SeedData.InitializeAsync(scope.ServiceProvider);
-    }
+    await using VibeCastDbContext db = await factory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+    await SeedData.InitializeAsync(scope.ServiceProvider);
 }
 
 app.UseHttpsRedirection();
@@ -118,7 +92,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapHealthChecks("/health");
 app.MapRazorPages();
 app.MapGet("/media/{mediaAssetId:guid}/content",
     async (

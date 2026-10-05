@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Text;
 using System.Threading.RateLimiting;
 using Azure;
 using Azure.AI.ContentUnderstanding;
@@ -36,14 +37,10 @@ public static class DependencyInjection
     public static IServiceCollection AddVibeCastInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("VibeCast")
-            ?? "Data Source=.vibecast/vibecast.db";
+            ?? throw new InvalidOperationException(
+        "The VibeCast PostgreSQL connection string is not configured.");
 
-        services.AddDbContextFactory<VibeCastDbContext>(options => options.UseSqlite(connectionString));
-
-        services.AddOptions<BlobStorageOptions>()
-            .Bind(configuration.GetSection(BlobStorageOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        services.AddDbContextFactory<VibeCastDbContext>(options => options.UseNpgsql(connectionString));
 
         services.AddOptions<KnowledgeStorageOptions>()
             .Bind(configuration.GetSection(KnowledgeStorageOptions.SectionName))
@@ -67,12 +64,6 @@ public static class DependencyInjection
                 "KnowledgeStorage:SearchEndpoint must be an absolute HTTPS URI.")
             .ValidateOnStart();
 
-
-        services.AddOptions<BackgroundJobsOptions>()
-            .Bind(configuration.GetSection(BackgroundJobsOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
         services.AddOptions<FoundryOptions>()
             .Bind(configuration.GetSection(FoundryOptions.SectionName))
             .ValidateDataAnnotations()
@@ -89,7 +80,15 @@ public static class DependencyInjection
             .ValidateOnStart();
 
 
-        services.AddSingleton<IBlobStorage, LocalBlobStorage>();
+        services.AddSingleton<IBlobStorage>(provider =>
+        {
+            BlobContainerClient containerClient = provider.GetRequiredKeyedService<BlobContainerClient>("media");
+            ILogger<AzureBlobStorage> logger = provider.GetRequiredService<ILogger<AzureBlobStorage>>();
+
+            return new AzureBlobStorage(containerClient, logger);
+        });
+
+
         services.AddSingleton<BlobServiceClient>(serviceProvider =>
         {
             KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
@@ -116,14 +115,14 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<BlobContainerClient>(serviceProvider =>
-            {
-                KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
-                        .Value;
+        {
+            KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                    .Value;
 
-                BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
+            BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
 
-                return blobServiceClient.GetBlobContainerClient(options.ContainerName);
-            });
+            return blobServiceClient.GetBlobContainerClient(options.ContainerName);
+        });
 
         services.AddSingleton<KnowledgeBaseRetrievalClient>(
             serviceProvider =>
@@ -140,10 +139,7 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<IKnowledgeSourceStorage, AzureBlobKnowledgeSourceStorage>();
-
-        services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
-        services.AddHostedService<BackgroundJobWorker>();
-
+        
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<SupportingSourceAssessmentValidationRequest>, SupportingSourceAssessmentValidator>();
         services.AddSingleton<MediaUploadValidator>();
@@ -209,14 +205,14 @@ public static class DependencyInjection
                .GetChatClient(options.ChatModelDeployment)
                .AsIChatClient();
 
-            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
-                providerClient,
-                logger);
-
             IChatClient resilientProviderClient = new ChatResilienceClient(
                 providerClient,
                 TimeSpan.FromSeconds(options.ChatTimeoutSeconds),
                 rateLimiter);
+
+            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
+                resilientProviderClient,
+                logger);
 
             return new ChatClientBuilder(monitoredProviderClient)
             .UseFunctionInvocation(
@@ -237,7 +233,7 @@ public static class DependencyInjection
             .Build(serviceProvider);
         });
 
-        #pragma warning disable MEAI001
+#pragma warning disable MEAI001
         services.AddSingleton<IImageGenerator>(serviceProvider =>
         {
             FoundryOptions options = serviceProvider

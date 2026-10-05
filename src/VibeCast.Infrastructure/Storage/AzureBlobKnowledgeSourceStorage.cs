@@ -63,7 +63,7 @@ public sealed class AzureBlobKnowledgeSourceStorage(
             Metadata = new Dictionary<string, string>
             {
                 ["mediaAssetId"] = mediaAssetId.ToString("D"),
-                ["ownerKey"] = BuildOwnerKey(ownerId)
+                ["ownerKey"] = Helpers.BuildOwnerKey(ownerId)
             }
         };
 
@@ -157,15 +157,6 @@ public sealed class AzureBlobKnowledgeSourceStorage(
             throw new SafeApplicationException("Only PDF and TXT files can be promoted to the knowledge store.");
         }
 
-        return $"owners/{BuildOwnerKey(ownerId)}/sources/{mediaAssetId:N}{extension}";
-    }
-
-    private static string BuildOwnerKey(string ownerId)
-    {
-        byte[] ownerBytes = Encoding.UTF8.GetBytes(ownerId);
-
-        byte[] hash = SHA256.HashData(ownerBytes);
-
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        return $"owners/{Helpers.BuildOwnerKey(ownerId)}/sources/{mediaAssetId:N}{extension}";
     }
 }

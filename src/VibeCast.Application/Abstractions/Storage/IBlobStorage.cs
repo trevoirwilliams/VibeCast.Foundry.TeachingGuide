@@ -4,6 +4,7 @@ public interface IBlobStorage
 {
     Task<StoredBlob> SaveAsync(
         Stream content,
+        string ownerId,
         string originalFileName,
         string contentType,
         CancellationToken cancellationToken = default);
