@@ -13,6 +13,7 @@ using VibeCast.Web.Components;
 using VibeCast.Web.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddServiceDefaults();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -87,6 +88,7 @@ builder.Services.AddOpenTelemetry()
     });
 
 var app = builder.Build();
+app.MapDefaultEndpoints();
 
 if (!app.Environment.IsDevelopment())
 {

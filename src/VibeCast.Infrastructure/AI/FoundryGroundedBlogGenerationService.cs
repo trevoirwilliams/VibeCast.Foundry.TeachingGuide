@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Azure;
 using Azure.Search.Documents.KnowledgeBases;
 using Azure.Search.Documents.KnowledgeBases.Models;
@@ -44,6 +45,11 @@ public sealed class FoundryGroundedBlogGenerationService(
         """;
 
     private readonly KnowledgeStorageOptions _options = options.Value;
+    protected static readonly JsonSerializerOptions JsonOptions =
+    new(JsonSerializerDefaults.Web)
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+    };
 
     public async Task<GroundedBlogDraft> GenerateAsync(
         GenerateGroundedBlogRequest request,
@@ -79,7 +85,7 @@ public sealed class FoundryGroundedBlogGenerationService(
             throw new SafeApplicationException("A selected knowledge source is invalid.");
         }
 
-        IReadOnlyList<MediaAssetSummary> knowledgeSources = await mediaAssetService.ListKnowledgeSourcesAsync(request.SourceIds, ownerId, cancellationToken);
+        IReadOnlyList<MediaAssetSummary> knowledgeSources = await mediaAssetService.GetKnowledgeSourcesAsync(request.SourceIds, ownerId, cancellationToken);
 
         if (knowledgeSources.Count == 0)
         {
@@ -141,6 +147,12 @@ public sealed class FoundryGroundedBlogGenerationService(
             throw new SafeApplicationException("The retrieved evidence did not contain usable references.");
         }
 
+        string groundingJson = JsonSerializer.Serialize(grounding, JsonOptions);
+
+        string sanitizedPrompt = prompt
+            .Replace("<user_query>",string.Empty)
+            .Replace("</user_query>",string.Empty);
+
         ChatMessage[] messages =
         [
             new(ChatRole.System, SystemInstructions),
@@ -148,8 +160,9 @@ public sealed class FoundryGroundedBlogGenerationService(
             new(ChatRole.User,
                 $"""
                 User's requested blog idea:
-
-                {prompt}
+                <user_query>
+                {sanitizedPrompt}
+                </user_query>
 
                 Write an article that directly addresses that requested topic and angle.
 
@@ -157,9 +170,10 @@ public sealed class FoundryGroundedBlogGenerationService(
 
                 If the retrieved evidence does not adequately support the requested topic, do not invent missing information.
 
-                Retrieved evidence:
-
-                {grounding}
+                Retrieved source material:
+                <documents>
+                {groundingJson}
+                </documents>
                 """)
         ];
 
@@ -244,9 +258,17 @@ public sealed class FoundryGroundedBlogGenerationService(
                     continue;
                 }
 
-                string content = item.TryGetProperty("content", out JsonElement contentElement)
-                    ? contentElement.GetString() ?? string.Empty
-                    : string.Empty;
+                if (!item.TryGetProperty("content", out JsonElement contentElement) || contentElement.ValueKind != JsonValueKind.String)
+                {
+                    throw new SafeApplicationException("The retrieved evidence has no usable text.");
+                }
+
+                string content = contentElement.GetString() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    throw new SafeApplicationException("The retrieved evidence has no usable text.");
+                }
 
                 references.Add(new GroundedEvidenceReference
                 {

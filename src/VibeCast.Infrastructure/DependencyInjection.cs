@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Threading.RateLimiting;
 using Azure;
 using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
@@ -101,6 +102,19 @@ public static class DependencyInjection
                 new DefaultAzureCredential());
         });
 
+        services.AddSingleton<RateLimiter>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider.GetRequiredService<IOptions<FoundryOptions>>().Value;
+
+            return new ConcurrencyLimiter(
+                new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = options.MaxConcurrentChatRequests,
+                    QueueLimit = options.ChatQueueLimit,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                });
+        });
+
         services.AddSingleton<BlobContainerClient>(serviceProvider =>
             {
                 KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
@@ -181,6 +195,8 @@ public static class DependencyInjection
             AzureOpenAIClient azureOpenAIClient =
                 serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
+            RateLimiter rateLimiter = serviceProvider.GetRequiredService<RateLimiter>();
+
             ILogger<ChatResponseLoggingClient> logger =
                 serviceProvider.GetRequiredService<
                     ILogger<ChatResponseLoggingClient>>();
@@ -197,17 +213,27 @@ public static class DependencyInjection
                 providerClient,
                 logger);
 
-            return new ChatClientBuilder(monitoredProviderClient)
+            IChatClient resilientProviderClient = new ChatResilienceClient(
+                monitoredProviderClient,
+                TimeSpan.FromSeconds(options.ChatTimeoutSeconds),
+                rateLimiter);
+
+            // Practice baseline correction: include the resilience wrapper in the returned pipeline.
+            return new ChatClientBuilder(resilientProviderClient)
             .UseFunctionInvocation(
                 loggerFactory,
                 functionClient =>
                 {
                     functionClient.MaximumIterationsPerRequest = 4;
-
-                    functionClient
-                        .MaximumConsecutiveErrorsPerRequest = 0;
-
+                    functionClient.MaximumConsecutiveErrorsPerRequest = 0;
                     functionClient.AllowConcurrentInvocation = false;
+                })
+            .UseOpenTelemetry(
+                loggerFactory: loggerFactory,
+                sourceName: VibeCastAiTelemetry.SourceName,
+                configure: telemetry =>
+                {
+                    telemetry.EnableSensitiveData = false;
                 })
             .Build(serviceProvider);
         });

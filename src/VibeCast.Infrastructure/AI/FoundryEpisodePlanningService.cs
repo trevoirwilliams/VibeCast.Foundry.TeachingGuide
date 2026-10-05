@@ -25,11 +25,9 @@ public class FoundryEpisodePlanningService(
                 nameof(request));
         }
 
-        string editorialBriefJson =
-            CreateEditorialBriefJson(request);
+        string editorialBriefJson = CreateEditorialBriefJson(request);
 
-        ChatMessage[] initialMessages =
-            CreateInitialMessages(editorialBriefJson);
+        ChatMessage[] initialMessages = CreateInitialMessages(editorialBriefJson);
 
         EpisodePlan initialPlan =
             await RequestTypedPlanAsync(
