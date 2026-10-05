@@ -1,0 +1,56 @@
+@page "/episodes"
+@attribute [Authorize]
+
+<PageTitle>Episodes</PageTitle>
+
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Content</div>
+    <h1>Episodes</h1>
+    <p>Manage editorial briefs and open the workspace where AI planning, media, retrieval, workflows, and evaluation will converge.</p>
+  </div>
+  <a class="btn btn-primary" href="/episodes/create">Create episode</a>
+</div>
+
+<div class="surface-card filter-bar">
+  <div class="search-field"><span>⌕</span><input class="form-control" placeholder="Search episodes" /></div>
+  <select class="form-select" aria-label="Filter by status"><option>All statuses</option><option>Draft</option><option>In review</option><option>Planned</option></select>
+  <select class="form-select" aria-label="Filter by content state"><option>All content states</option><option>Brief ready</option><option>Evidence staged</option><option>Media pending</option></select>
+</div>
+
+<section class="surface-card mt-3">
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Episode</th><th>Status</th><th>Owner</th><th>Content state</th><th>Last updated</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var episode in episodes)
+        {
+          <tr>
+            <td><a class="table-link" href="/episodes/@episode.Id">@episode.Title</a><small>@episode.Description</small></td>
+            <td><span class="status-badge @episode.BadgeClass">@episode.Status</span></td>
+            <td>@episode.Owner</td>
+            <td>@episode.ContentState</td>
+            <td>@episode.Updated</td>
+            <td><a class="btn btn-sm btn-outline-secondary" href="/episodes/@episode.Id">Open workspace</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="empty-state compact mt-3">
+  <div class="empty-icon">+</div>
+  <div><strong>Designed for progressive implementation</strong><p>These rows are presentation data. Later lessons connect this page to application services and persistence without redesigning the product surface.</p></div>
+</div>
+
+@code {
+  private readonly EpisodeRow[] episodes =
+  [
+    new("104", "Responsible AI in Production", "Threat models, evaluation gates, and responsible operations.", "Draft", "badge-neutral", "T. Williams", "Brief ready", "12 minutes ago"),
+    new("103", "Designing Reliable RAG", "Evidence quality, hybrid retrieval, and citation contracts.", "In review", "badge-warning", "T. Williams", "Evidence staged", "Yesterday"),
+    new("102", "Multimodal Content Workflows", "Text, image, speech, and document processing in one pipeline.", "Planned", "badge-info", "T. Williams", "Media pending", "Jul 14")
+  ];
+
+  private sealed record EpisodeRow(string Id, string Title, string Description, string Status, string BadgeClass, string Owner, string ContentState, string Updated);
+}

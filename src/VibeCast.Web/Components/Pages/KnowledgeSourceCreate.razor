@@ -1,0 +1,40 @@
+@page "/knowledge/create"
+@attribute [Authorize]
+
+<PageTitle>Add knowledge source</PageTitle>
+
+<div class="breadcrumb-line"><a href="/knowledge">Knowledge sources</a><span>/</span><span>Add source</span></div>
+<div class="page-heading"><div><div class="eyebrow">RAG preparation</div><h1>Add a knowledge source</h1><p>Capture source metadata, access boundaries, and ingestion choices without creating an index on this branch.</p></div></div>
+
+<div class="form-layout">
+  <section class="surface-card">
+    <div class="form-section">
+      <div class="form-section-title"><span>1</span><div><h2>Source identity</h2><p>Describe the evidence and its business purpose.</p></div></div>
+      <div class="row g-3"><div class="col-md-6"><label class="form-label">Name</label><input class="form-control" placeholder="Brand and Safety Policies" /></div><div class="col-md-6"><label class="form-label">Source type</label><select class="form-select"><option>Uploaded documents</option><option>Azure Blob container</option><option>Website</option><option>API or data service</option></select></div><div class="col-12"><label class="form-label">Description</label><textarea class="form-control" rows="3" placeholder="Explain what the source contains and when it should be used."></textarea></div></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><span>2</span><div><h2>Content and metadata</h2><p>Prepare the inputs that later feed the ingestion lifecycle.</p></div></div>
+      <div class="upload-dropzone compact-zone"><div class="upload-icon">＋</div><h3>Add source files</h3><p>PDF, DOCX, Markdown, JSON, and text</p><button class="btn btn-sm btn-outline-primary" disabled>Choose files</button></div>
+      <label class="form-label mt-3">Metadata labels</label><input class="form-control" placeholder="brand, safety, approved, 2026" />
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><span>3</span><div><h2>Retrieval and access</h2><p>Make permission and chunking decisions explicit before indexing.</p></div></div>
+      <div class="row g-3"><div class="col-md-6"><label class="form-label">Permission scope</label><select class="form-select"><option>Editorial team</option><option>Engineering</option><option>Compliance</option><option>All authenticated users</option></select></div><div class="col-md-6"><label class="form-label">Chunking strategy</label><select class="form-select"><option>Semantic sections</option><option>Paragraph boundaries</option><option>Fixed token window</option><option>Custom processor</option></select></div><div class="col-md-6"><label class="form-label">Maximum chunk size</label><input class="form-control" value="800 tokens" /></div><div class="col-md-6"><label class="form-label">Overlap</label><input class="form-control" value="120 tokens" /></div></div>
+    </div>
+
+    @if (staged)
+    {
+      <div class="alert alert-info">The source definition is staged for demonstration. No files were uploaded, embedded, or indexed.</div>
+    }
+    <div class="form-actions"><a class="btn btn-outline-secondary" href="/knowledge">Cancel</a><button class="btn btn-outline-primary" @onclick="Stage">Save definition</button><button class="btn btn-primary" disabled>Save and index</button></div>
+  </section>
+
+  <aside class="surface-card guidance-card"><div class="guidance-icon">◇</div><h2>Indexing is intentionally absent</h2><p>The future implementation will add document readers, processors, versioned chunks, embeddings, vector records, retries, quarantine, and partial-success reporting.</p><div class="mini-status"><span class="status-dot"></span><div><strong>Azure AI Search not connected</strong><small>Implemented in the RAG section.</small></div></div></aside>
+</div>
+
+@code {
+  private bool staged;
+  private void Stage() => staged = true;
+}

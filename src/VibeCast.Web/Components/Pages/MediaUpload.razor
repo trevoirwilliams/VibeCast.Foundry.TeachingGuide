@@ -1,0 +1,77 @@
+@page "/media/upload"
+@attribute [Authorize]
+
+<PageTitle>Upload media</PageTitle>
+
+<div class="breadcrumb-line"><a href="/media">Media library</a><span>/</span><span>Upload media</span></div>
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Content ingestion</div>
+    <h1>Upload source media</h1>
+    <p>Stage the form and processing choices that later connect to blob storage, background jobs, and multimodal AI services.</p>
+  </div>
+</div>
+
+<div class="form-layout">
+  <section class="surface-card">
+    <div class="upload-dropzone">
+      <InputFile OnChange="SelectFile" />
+      <div class="upload-icon">⇧</div>
+      <h2>Drop a file here or browse</h2>
+      <p>Audio, image, PDF, and text files up to 250 MB</p>
+    </div>
+
+    @if (selectedFile is not null)
+    {
+      <div class="selected-file">
+        <div class="file-icon">@FileType(selectedFile.ContentType)</div>
+        <div><strong>@selectedFile.Name</strong><small>@selectedFile.ContentType · @FormatSize(selectedFile.Size)</small></div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="ClearFile">Remove</button>
+      </div>
+    }
+
+    <div class="form-section">
+      <div class="form-section-title"><span>1</span><div><h2>Asset details</h2><p>Associate the file with its editorial context.</p></div></div>
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label">Associated episode</label><select class="form-select"><option>Responsible AI in Production</option><option>Designing Reliable RAG</option><option>Multimodal Content Workflows</option></select></div>
+        <div class="col-md-6"><label class="form-label">Media category</label><select class="form-select"><option>Source audio</option><option>Reference image</option><option>Enterprise document</option><option>Promotional asset</option></select></div>
+        <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" rows="3" placeholder="Describe how this asset should be used."></textarea></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><span>2</span><div><h2>Requested processing</h2><p>These selections will later become validated background-job instructions.</p></div></div>
+      <div class="option-grid">
+        <label class="option-card"><input type="checkbox" /><div><strong>Transcribe audio</strong><small>Generate timestamped text and speaker segments.</small></div></label>
+        <label class="option-card"><input type="checkbox" /><div><strong>Analyze image</strong><small>Create captions, visual answers, and metadata.</small></div></label>
+        <label class="option-card"><input type="checkbox" /><div><strong>Extract document content</strong><small>Preserve fields, layout, and confidence.</small></div></label>
+        <label class="option-card"><input type="checkbox" /><div><strong>Accessibility description</strong><small>Generate an inclusive description for the asset.</small></div></label>
+      </div>
+    </div>
+
+    @if (showNotice)
+    {
+      <div class="alert alert-info">The upload request is staged. No bytes were persisted and no processing job was created on this UI-scaffold branch.</div>
+    }
+
+    <div class="form-actions"><a class="btn btn-outline-secondary" href="/media">Cancel</a><button class="btn btn-primary" type="button" @onclick="StageUpload">Upload and process</button></div>
+  </section>
+
+  <aside class="surface-card guidance-card">
+    <div class="guidance-icon">⇢</div>
+    <h2>Implementation path</h2>
+    <ol class="implementation-list"><li>Validate content type and size</li><li>Store through <code>IBlobStorage</code></li><li>Create a durable processing job</li><li>Route by modality</li><li>Persist normalized output and telemetry</li></ol>
+    <div class="mini-status"><span class="status-dot"></span><div><strong>Processing unavailable</strong><small>Storage and background execution are not invoked by this page.</small></div></div>
+  </aside>
+</div>
+
+@code {
+  private IBrowserFile? selectedFile;
+  private bool showNotice;
+
+  private void SelectFile(InputFileChangeEventArgs args) => selectedFile = args.File;
+  private void ClearFile() => selectedFile = null;
+  private void StageUpload() => showNotice = true;
+  private static string FileType(string contentType) => contentType.StartsWith("audio/") ? "AU" : contentType.StartsWith("image/") ? "IM" : "DOC";
+  private static string FormatSize(long bytes) => bytes < 1_048_576 ? $"{bytes / 1024d:N1} KB" : $"{bytes / 1_048_576d:N1} MB";
+}

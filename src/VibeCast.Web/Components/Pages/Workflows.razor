@@ -1,0 +1,51 @@
+@page "/workflows"
+@attribute [Authorize]
+
+<PageTitle>Editorial workflows</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">AI operations</div><h1>Editorial workflows</h1><p>Inspect the future orchestration surface for deterministic stages, specialist agents, tools, approvals, and durable execution.</p></div>
+  <button class="btn btn-primary" disabled>Create workflow</button>
+</div>
+
+<div class="metric-grid compact">
+  <div class="metric-card"><div class="metric-label">Active</div><div class="metric-value">1</div><div class="metric-note">Illustrative workflow</div></div>
+  <div class="metric-card"><div class="metric-label">Awaiting approval</div><div class="metric-value">1</div><div class="metric-note">Human review required</div></div>
+  <div class="metric-card"><div class="metric-label">Completed</div><div class="metric-value">3</div><div class="metric-note">Presentation history</div></div>
+  <div class="metric-card"><div class="metric-label">Failed</div><div class="metric-value">0</div><div class="metric-note">No execution connected</div></div>
+</div>
+
+<section class="surface-card mt-3">
+  <div class="table-responsive">
+    <table class="table workspace-table mb-0">
+      <thead><tr><th>Workflow</th><th>Episode</th><th>Current stage</th><th>Roles</th><th>Approval</th><th>Last activity</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var workflow in workflows)
+        {
+          <tr>
+            <td><strong>@workflow.Name</strong><small>@workflow.Description</small></td>
+            <td>@workflow.Episode</td>
+            <td><span class="status-badge @workflow.StageClass">@workflow.Stage</span></td>
+            <td>@workflow.Roles</td>
+            <td>@workflow.Approval</td>
+            <td>@workflow.Activity</td>
+            <td><a class="btn btn-sm btn-outline-secondary" href="/workflows/@workflow.Id">Open</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="architecture-callout mt-4"><div><strong>Controlled autonomy</strong><p>The final implementation will preserve typed transitions, bounded tool access, termination rules, checkpoints, and evidence for every consequential action.</p></div><a href="/approvals">Open approval queue</a></div>
+
+@code {
+  private readonly WorkflowRow[] workflows =
+  [
+    new("wf-104", "Episode editorial production", "Research, draft, compliance, and human approval.", "Episode 104", "Compliance review", "badge-warning", "Research · Writer · Compliance", "Pending", "8 minutes ago"),
+    new("wf-103", "Grounded research brief", "Retrieve evidence and prepare a cited episode outline.", "Episode 103", "Completed", "badge-success", "Research · Editor", "Approved", "Yesterday"),
+    new("wf-102", "Multimodal campaign", "Coordinate transcript, artwork, narration, and review.", "Episode 102", "Not started", "badge-neutral", "Media · Writer · Editor", "Not requested", "Jul 14")
+  ];
+
+  private sealed record WorkflowRow(string Id, string Name, string Description, string Episode, string Stage, string StageClass, string Roles, string Approval, string Activity);
+}

@@ -1,0 +1,39 @@
+@page "/media"
+@attribute [Authorize]
+
+<PageTitle>Media library</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">Content</div><h1>Media library</h1><p>Review source files and generated assets before storage, modality routing, and processing services are connected.</p></div>
+  <a class="btn btn-primary" href="/media/upload">Upload media</a>
+</div>
+
+<div class="surface-card filter-bar">
+  <div class="search-field"><span>⌕</span><input class="form-control" placeholder="Search media assets" /></div>
+  <select class="form-select"><option>All media types</option><option>Audio</option><option>Images</option><option>Documents</option></select>
+  <select class="form-select"><option>All processing states</option><option>Ready</option><option>Queued</option><option>Not processed</option></select>
+</div>
+
+<div class="media-card-grid mt-3">
+  @foreach (var asset in assets)
+  {
+    <article class="media-tile">
+      <div class="media-preview @asset.PreviewClass"><span>@asset.TypeCode</span></div>
+      <div class="media-copy"><div class="d-flex justify-content-between gap-2"><strong>@asset.Name</strong><span class="status-badge @asset.BadgeClass">@asset.Status</span></div><small>@asset.Type · @asset.Size</small><p>@asset.Description</p><div class="media-meta"><span>@asset.Episode</span><span>@asset.Updated</span></div></div>
+    </article>
+  }
+  <a class="media-tile placeholder-tile" href="/media/upload"><div>＋</div><strong>Add source media</strong><small>Stage another audio, image, or document asset.</small></a>
+</div>
+
+<div class="empty-state compact mt-4"><div class="empty-icon">i</div><div><strong>Presentation data only</strong><p>The cards establish the media experience. They do not read from EF Core or blob storage on this branch.</p></div></div>
+
+@code {
+  private readonly MediaRow[] assets =
+  [
+    new("AU", "responsible-ai-interview.wav", "Audio", "42.8 MB", "Source interview audio awaiting transcription.", "Episode 104", "Queued", "badge-warning", "preview-audio", "12 minutes ago"),
+    new("PDF", "brand-and-safety-policy.pdf", "Document", "2.4 MB", "Enterprise evidence prepared for future ingestion.", "Shared knowledge", "Not processed", "badge-neutral", "preview-document", "Yesterday"),
+    new("IM", "episode-cover-reference.png", "Image", "1.8 MB", "Reference artwork for image understanding and editing.", "Episode 102", "Ready shell", "badge-info", "preview-image", "Jul 14")
+  ];
+
+  private sealed record MediaRow(string TypeCode, string Name, string Type, string Size, string Description, string Episode, string Status, string BadgeClass, string PreviewClass, string Updated);
+}

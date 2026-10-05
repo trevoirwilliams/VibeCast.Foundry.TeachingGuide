@@ -1,0 +1,40 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <NavMenu />
+  </aside>
+
+  <main class="main-panel">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">VibeCast workspace</div>
+        <strong>Enterprise multimodal content operations</strong>
+      </div>
+
+      <AuthorizeView>
+        <Authorized Context="auth">
+          <div class="user-menu">
+            <div class="user-avatar">@GetInitial(auth.User.Identity?.Name)</div>
+            <div class="user-copy">
+              <span class="fw-semibold">@auth.User.Identity?.Name</span>
+              <a href="/Account/Logout">Sign out</a>
+            </div>
+          </div>
+        </Authorized>
+        <NotAuthorized>
+          <a class="btn btn-sm btn-primary" href="/Account/Login">Sign in</a>
+        </NotAuthorized>
+      </AuthorizeView>
+    </header>
+
+    <article class="content">
+      @Body
+    </article>
+  </main>
+</div>
+
+@code {
+  private static string GetInitial(string? name) =>
+    string.IsNullOrWhiteSpace(name) ? "VC" : name[..1].ToUpperInvariant();
+}

@@ -1,0 +1,47 @@
+@page "/settings"
+@attribute [Authorize]
+
+<PageTitle>Settings</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">Operations</div><h1>Settings</h1><p>Review the configuration surfaces that later bind to secure application settings, managed identity, feature flags, and Microsoft Foundry resources.</p></div>
+  <button class="btn btn-primary" disabled>Save settings</button>
+</div>
+
+<div class="settings-layout">
+  <aside class="surface-card settings-nav">
+    <a class="active" href="#general">General</a>
+    <a href="#foundry">Microsoft Foundry</a>
+    <a href="#storage">Storage and jobs</a>
+    <a href="#safety">Responsible AI</a>
+    <a href="#features">Feature flags</a>
+  </aside>
+
+  <div class="settings-content">
+    <section class="surface-card" id="general">
+      <div class="section-heading"><div><h2>General application settings</h2><p>Presentation-only values for the VibeCast workspace.</p></div><span class="status-badge badge-info">Shell ready</span></div>
+      <div class="row g-3"><div class="col-md-6"><label class="form-label">Workspace name</label><input class="form-control" value="VibeCast Enterprise Content" /></div><div class="col-md-6"><label class="form-label">Default language</label><select class="form-select"><option>English (United States)</option><option>English (United Kingdom)</option></select></div><div class="col-md-6"><label class="form-label">Default time zone</label><select class="form-select"><option>America/Cayman</option><option>UTC</option></select></div><div class="col-md-6"><label class="form-label">Content retention</label><select class="form-select"><option>90 days</option><option>180 days</option><option>365 days</option></select></div></div>
+    </section>
+
+    <section class="surface-card mt-3" id="foundry">
+      <div class="section-heading"><div><h2>Microsoft Foundry connection</h2><p>The Section 04 implementation will bind validated settings and register provider-neutral clients.</p></div><span class="status-badge badge-warning">Not configured</span></div>
+      <div class="connection-panel"><div class="connection-mark">MF</div><div><strong>No project endpoint detected</strong><p>Use managed identity or a development credential chain. Secrets should not be entered or rendered on this page.</p></div></div>
+      <div class="row g-3 mt-1"><div class="col-12"><label class="form-label">Project endpoint</label><input class="form-control" placeholder="https://your-resource.services.ai.azure.com/api/projects/your-project" disabled /></div><div class="col-md-6"><label class="form-label">Chat deployment</label><input class="form-control" placeholder="vibecast-chat" disabled /></div><div class="col-md-6"><label class="form-label">Embedding deployment</label><input class="form-control" placeholder="vibecast-embeddings" disabled /></div></div>
+    </section>
+
+    <section class="surface-card mt-3" id="storage">
+      <div class="section-heading"><div><h2>Storage and background jobs</h2><p>Future production configuration for media, job state, ownership, and retention.</p></div></div>
+      <div class="row g-3"><div class="col-md-6"><label class="form-label">Media provider</label><select class="form-select" disabled><option>Local development storage</option></select></div><div class="col-md-6"><label class="form-label">Job transport</label><select class="form-select" disabled><option>In-memory teaching queue</option></select></div><div class="col-md-6"><label class="form-label">Maximum upload size</label><input class="form-control" value="250 MB" disabled /></div><div class="col-md-6"><label class="form-label">Worker concurrency</label><input class="form-control" value="2" disabled /></div></div>
+    </section>
+
+    <section class="surface-card mt-3" id="safety">
+      <div class="section-heading"><div><h2>Responsible AI controls</h2><p>Intervention points are shown now; guardrails and escalation logic arrive later.</p></div><span class="status-badge badge-neutral">Not evaluated</span></div>
+      <div class="option-grid"><label class="option-card disabled"><input type="checkbox" checked disabled /><div><strong>Input content screening</strong><small>Inspect prompts and uploaded content.</small></div></label><label class="option-card disabled"><input type="checkbox" checked disabled /><div><strong>Output content screening</strong><small>Inspect generated responses before use.</small></div></label><label class="option-card disabled"><input type="checkbox" checked disabled /><div><strong>PII review</strong><small>Detect sensitive information and escalate.</small></div></label><label class="option-card disabled"><input type="checkbox" checked disabled /><div><strong>Human approval</strong><small>Pause consequential workflows.</small></div></label></div>
+    </section>
+
+    <section class="surface-card mt-3" id="features">
+      <div class="section-heading"><div><h2>Feature flags</h2><p>Controlled capabilities remain unavailable until their implementation checkpoint.</p></div></div>
+      <div class="feature-list"><div><div><strong>AI episode planner</strong><small>Structured plan generation</small></div><span class="status-badge badge-neutral">Off</span></div><div><div><strong>Multimodal processing</strong><small>Speech, image, and document workflows</small></div><span class="status-badge badge-neutral">Off</span></div><div><div><strong>Enterprise RAG</strong><small>Permission-aware retrieval and citations</small></div><span class="status-badge badge-neutral">Off</span></div><div><div><strong>Editorial agents</strong><small>Controlled multi-agent orchestration</small></div><span class="status-badge badge-neutral">Off</span></div></div>
+    </section>
+  </div>
+</div>

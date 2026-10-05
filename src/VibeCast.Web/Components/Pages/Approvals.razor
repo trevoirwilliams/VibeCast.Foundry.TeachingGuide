@@ -1,0 +1,63 @@
+@page "/approvals"
+@attribute [Authorize]
+
+<PageTitle>Approval queue</PageTitle>
+
+<div class="page-heading">
+  <div><div class="eyebrow">AI operations</div><h1>Approval queue</h1><p>Review consequential tool requests, generated claims, supporting evidence, and audit notes before a workflow resumes.</p></div>
+  <span class="status-badge badge-warning">1 pending</span>
+</div>
+
+<div class="approval-layout">
+  <aside class="surface-card approval-list">
+    <div class="section-heading"><div><h2>Pending requests</h2><p>Select an item to review.</p></div></div>
+    <button class="approval-item active">
+      <span class="risk-mark high">H</span>
+      <div><strong>Approve compliance-sensitive claim</strong><small>Episode 104 · Editorial workflow</small></div>
+      <span>8m</span>
+    </button>
+    <button class="approval-item">
+      <span class="risk-mark medium">M</span>
+      <div><strong>Publish promotional artwork</strong><small>Episode 102 · Media workflow</small></div>
+      <span>1d</span>
+    </button>
+  </aside>
+
+  <section class="surface-card approval-detail">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+      <div><div class="eyebrow">High-risk request</div><h2>Approve compliance-sensitive claim</h2><p>Requested by the compliance stage of the Episode 104 editorial workflow.</p></div>
+      <span class="status-badge badge-danger">Human decision required</span>
+    </div>
+
+    <div class="claim-box mt-4">
+      <small>Proposed claim</small>
+      <blockquote>“A production AI system is ready only when its quality, safety, access, and operational behavior can be measured and governed.”</blockquote>
+    </div>
+
+    <div class="row g-3 mt-2">
+      <div class="col-md-6"><div class="evidence-card"><span>Evidence 01</span><strong>Internal AI governance standard</strong><p>Defines mandatory quality, safety, access-control, and operational acceptance criteria.</p><small>Page 14 · Confidence not evaluated</small></div></div>
+      <div class="col-md-6"><div class="evidence-card"><span>Evidence 02</span><strong>Production readiness checklist</strong><p>Requires measurable thresholds, monitoring ownership, and rollback capability.</p><small>Section 3 · Confidence not evaluated</small></div></div>
+    </div>
+
+    <div class="mt-4">
+      <label class="form-label">Decision note</label>
+      <textarea class="form-control" rows="4" placeholder="Record the reasoning, requested change, or approval condition."></textarea>
+    </div>
+
+    @if (showNotice)
+    {
+      <div class="alert alert-info mt-3">The decision control is present for teaching purposes. No workflow state or audit record was changed.</div>
+    }
+
+    <div class="form-actions mt-3">
+      <button class="btn btn-outline-danger" @onclick="StageDecision">Reject</button>
+      <button class="btn btn-outline-secondary" @onclick="StageDecision">Request changes</button>
+      <button class="btn btn-primary" @onclick="StageDecision">Approve and resume</button>
+    </div>
+  </section>
+</div>
+
+@code {
+  private bool showNotice;
+  private void StageDecision() => showNotice = true;
+}
