@@ -39,3 +39,7 @@ After editing:
 4. Explain the final request path.
 5. Report commands and results.
 6. State any unverified external integration.
+
+Prefer a direct implementation through the existing application boundary.
+
+Do not introduce speculative extensibility or an interface with one foreseeable implementation unless the task establishes an independent boundary that requires it.

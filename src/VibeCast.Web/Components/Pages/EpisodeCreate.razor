@@ -5,7 +5,12 @@
 @using VibeCast.Application.Episodes
 @using System.Diagnostics
 @using System.Text
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject IEpisodeConceptGenerator EpisodeConceptGenerator
+@inject IEpisodeService EpisodeService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
 @inject Microsoft.Extensions.Logging.ILogger<EpisodeCreate> Logger
 
 <PageTitle>Create episode</PageTitle>
@@ -31,12 +36,13 @@
     <section class="surface-card">
         <EditForm
             EditContext="editContext"
-            OnValidSubmit="PreviewSubmission"
+            OnValidSubmit="SaveAndOpenWorkspaceAsync"
             FormName="create-episode-shell">
-
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" />
-
+            <fieldset
+              class="border-0 p-0 m-0"
+              disabled="@(isSaving || savedEpisodeId.HasValue)">
+              <DataAnnotationsValidator />
+              <ValidationSummary class="text-danger" />
             <div class="form-section">
                 <div class="form-section-title">
                     <span>1</span>
@@ -148,34 +154,51 @@
                 </div>
             </div>
 
-            @if (showNotice)
-            {
-                <div class="alert alert-info">
-                    The form is valid. Persistence remains disabled
-                    at this teaching checkpoint.
+                @if (!string.IsNullOrWhiteSpace(saveError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @saveError
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(saveNotice))
+                {
+                    <div class="alert alert-success" role="status">
+                        @saveNotice
+                    </div>
+                }
+
+                <div class="form-actions">
+                    <a class="btn btn-outline-secondary"
+                       href="/episodes">
+                        Cancel
+                    </a>
+
+                    @if (savedEpisodeId is null)
+                    {
+                        <button class="btn btn-outline-primary"
+                                type="button"
+                                disabled="@isSaving"
+                                @onclick="SaveDraftAsync">
+                            @(isSaving ? "Saving..." : "Save draft")
+                        </button>
+
+                        <button class="btn btn-primary"
+                                type="submit"
+                                disabled="@isSaving">
+                            @(isSaving ? "Saving..." : "Save and open workspace")
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary"
+                                type="button"
+                                @onclick="OpenSavedWorkspace">
+                            Open saved workspace
+                        </button>
+                    }
                 </div>
-            }
-
-            <div class="form-actions">
-                <a
-                    class="btn btn-outline-secondary"
-                    href="/episodes">
-                    Cancel
-                </a>
-
-                <button
-                    class="btn btn-outline-primary"
-                    type="button"
-                    @onclick="PreviewSubmission">
-                    Save draft
-                </button>
-
-                <button
-                    class="btn btn-primary"
-                    type="submit">
-                    Save and open workspace
-                </button>
-            </div>
+            </fieldset>
         </EditForm>
     </section>
 
@@ -295,12 +318,16 @@
     private bool isGenerating;
     private string? generatedConcept;
     private string? generationError;
+    private Guid? savedEpisodeId;
+    private bool isSaving;
+    private string? saveError;
+    private string? saveNotice;
 
     private static readonly TimeSpan GenerationTimeout =
     TimeSpan.FromSeconds(90);
 
-  private static readonly TimeSpan StreamingRenderInterval =
-      TimeSpan.FromMilliseconds(75);
+    private static readonly TimeSpan StreamingRenderInterval =
+        TimeSpan.FromMilliseconds(75);
 
     protected override void OnInitialized()
     {
@@ -553,6 +580,120 @@
         public string Language { get; set; } =
             "English (United States)";
 
-        public DateTime? PublishDate { get; set; }
+        public DateOnly? PublishDate { get; set; }
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        Guid? episodeId = await PersistEpisodeAsync();
+
+        if (episodeId is null)
+        {
+            return;
+        }
+
+        savedEpisodeId = episodeId;
+        saveNotice = "The editorial brief was saved successfully.";
+    }
+
+    private async Task SaveAndOpenWorkspaceAsync()
+    {
+        if (savedEpisodeId is Guid existingEpisodeId)
+        {
+            Navigation.NavigateTo($"/episodes/{existingEpisodeId:D}");
+            return;
+        }
+
+        Guid? episodeId = await PersistEpisodeAsync();
+
+        if (episodeId is null)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"/episodes/{episodeId.Value:D}");
+
+    }
+
+    private async Task<Guid?> PersistEpisodeAsync()
+    {
+        if (isSaving)
+        {
+            return null;
+        }
+
+        saveError = null;
+        saveNotice = null;
+
+        if (!editContext.Validate())
+        {
+            saveError =
+                "Complete the required editorial brief fields " +
+                "before saving the episode.";
+
+            return null;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            AuthenticationState authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            string? ownerId = authenticationState.User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                saveError =
+                    "The authenticated user could not be resolved. " +
+                    "Sign in again and retry.";
+
+                return null;
+            }
+
+            CreateEpisodeRequest request = new()
+            {
+                Title = model.Title,
+                Description = model.Description,
+                TargetAudience = model.TargetAudience,
+                Objective = model.Objective,
+                Tone = model.Tone,
+                Language = model.Language,
+                PlannedPublishDate = model.PublishDate
+            };
+
+            return await EpisodeService.CreateAsync(
+                request,
+                ownerId);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to persist an episode draft " +
+                "for the current user.");
+
+            saveError =
+                "VibeCast could not save the editorial brief. " +
+                "Review the application logs and retry.";
+
+            return null;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OpenSavedWorkspace()
+    {
+        if (savedEpisodeId is Guid episodeId)
+        {
+            Navigation.NavigateTo($"/episodes/{episodeId:D}");
+        }
     }
 }

@@ -183,6 +183,25 @@ Do not generate a migration unless the requested feature changes the persisted m
 
 Preserve ownership indexes and field-length constraints.
 
+## Simplicity and scope
+
+Prefer the simplest production-capable implementation that satisfies the current requirement and lesson objective.
+
+Reuse an existing aggregate, application service, interface, and persistence boundary before introducing another one.
+
+Do not create a new interface, repository, wrapper, base class, entity, policy service, result type, or test framework merely to make the solution appear more enterprise-ready.
+
+Introduce an abstraction only when it solves a demonstrated need such as:
+
+- multiple real implementations;
+- an independent lifecycle;
+- a security or ownership boundary;
+- provider isolation;
+- unavoidable testability constraints;
+- behavior that changes independently of its consumer.
+
+Do not duplicate validation across layers. Keep each rule at the boundary that owns the decision.
+
 ## Tests
 
 Every behavioral change requires tests at the narrowest appropriate level.
@@ -202,6 +221,14 @@ Test relevant combinations of:
 - tool rejection;
 - authorization failure;
 - insufficient retrieval evidence.
+
+During test generation:
+
+- prefer a few high-value behavioral tests;
+- use existing public seams first;
+- keep fakes local to the test class until reuse is demonstrated;
+- do not modify production code solely for test convenience;
+- do not add a mocking library or shared test framework unless already required.
 
 Do not weaken or delete an existing test merely to make a change pass.
 

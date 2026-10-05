@@ -14,4 +14,7 @@ public sealed class FoundryOptions
     public string ChatModelDeployment { get; init; } = string.Empty;
 
     public string? ApiKey { get; init; } = string.Empty;
+
+    [Range(0, 5)]
+    public int MaxRetries { get; init; } = 2;
 }
