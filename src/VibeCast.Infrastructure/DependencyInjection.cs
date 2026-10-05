@@ -1,11 +1,16 @@
+using System.ClientModel;
+using Azure.AI.OpenAI;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using VibeCast.Application.Abstractions.Jobs;
 using VibeCast.Application.Abstractions.Storage;
 using VibeCast.Application.Episodes;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
+using VibeCast.Infrastructure.AI;
 using VibeCast.Infrastructure.Data;
 using VibeCast.Infrastructure.Jobs;
 using VibeCast.Infrastructure.Options;
@@ -32,12 +37,48 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<FoundryOptions>()
+            .Bind(configuration.GetSection(FoundryOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
         services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
+
+        services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
+
+            return new AzureOpenAIClient(
+                new Uri(
+                    options.ProjectEndpoint,
+                    UriKind.Absolute),
+                new ApiKeyCredential(options.ApiKey ?? string.Empty));
+        });
+
+        services.AddSingleton<IChatClient>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
+
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider.GetRequiredService<AzureOpenAIClient>();
+
+            return azureOpenAIClient
+                .GetChatClient(options.ChatModelDeployment)
+                .AsIChatClient();
+        });
+
+        services.AddScoped<
+            IEpisodeConceptGenerator,
+            FoundryEpisodeConceptGenerator>();
 
         return services;
     }

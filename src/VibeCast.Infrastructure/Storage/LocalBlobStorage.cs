@@ -48,7 +48,12 @@ public sealed class LocalBlobStorage(IOptions<BlobStorageOptions> options) : IBl
     {
         var normalizedKey = storageKey.Replace('/', Path.DirectorySeparatorChar);
         var fullPath = Path.GetFullPath(Path.Combine(_rootPath, normalizedKey));
-        if (!fullPath.StartsWith(_rootPath, StringComparison.Ordinal))
+        var relativePath = Path.GetRelativePath(_rootPath, fullPath);
+
+        if (Path.IsPathRooted(relativePath)
+            || relativePath == "."
+            || relativePath == ".."
+            || relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("The blob key resolves outside the configured storage root.");
         }
