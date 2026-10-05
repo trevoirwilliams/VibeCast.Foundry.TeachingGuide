@@ -112,6 +112,15 @@ public sealed class VibeCastDbContext(DbContextOptions<VibeCastDbContext> option
             entity.Property(x => x.TranscriptionLocale)
                 .HasMaxLength(20);
 
+            entity.Property(x => x.IsKnowledgeSource)
+                .IsRequired();
+
+            entity.HasIndex(x => new
+            {
+                x.OwnerId,
+                x.IsKnowledgeSource
+            });
+
             entity.HasIndex(x => x.StorageKey).IsUnique();
 
             entity.HasMany(s => s.SupportingSources)

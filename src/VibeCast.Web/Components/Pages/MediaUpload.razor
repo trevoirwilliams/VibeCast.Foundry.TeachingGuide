@@ -9,18 +9,18 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<MediaUpload> Logger
 
-<PageTitle>@(EpisodeId is null ? "Upload source" : "Upload episode media")</PageTitle>
+<PageTitle>@(EpisodeId is null ? "Upload document" : "Upload episode media")</PageTitle>
 
 <div class="breadcrumb-line">
     <a href="/media">Source gallery</a>
     <span>/</span>
-    <span>@(EpisodeId is null ? "Upload source" : "Upload episode media")</span>
+    <span>@(EpisodeId is null ? "Upload document" : "Upload episode media")</span>
 </div>
 
 <div class="page-heading">
     <div>
         <div class="eyebrow">Media intake</div>
-        <h1>@(EpisodeId is null ? "Upload source" : "Upload episode media")</h1>
+        <h1>@(EpisodeId is null ? "Upload document" : "Upload episode media")</h1>
         <p>@GetPageDescription()</p>
     </div>
 </div>
@@ -263,13 +263,12 @@
 
     private string GetPageDescription() =>
         EpisodeId is null
-            ? "Add a PDF or TXT research document to your reusable Source Gallery."
+            ? "Add a PDF or TXT document to your Media Library. You can then choose whether it should be used as a knowledge source."
             : "Add an image, recording, video, or document to this episode.";
 
-    private string GetDestinationMessage() =>
-        EpisodeId is Guid episodeId
-            ? $"This file will be associated with episode {episodeId:D}."
-            : "This PDF or TXT file will be added to your shared Source Gallery.";
+    private string GetDestinationMessage() => EpisodeId is Guid episodeId
+        ? $"This file will be associated with episode {episodeId:D}."
+        : "This PDF or TXT file will be added to your Media Library.";
 
     private string GetAcceptedFileTypes() =>
         EpisodeId is null

@@ -57,6 +57,8 @@ public sealed class MediaAsset : Entity
 
     public IList<EpisodeSupportingSource> SupportingSources { get; private set; } = new List<EpisodeSupportingSource>();
 
+    public bool IsKnowledgeSource { get; private set; }
+
     public static MediaAsset Create(Guid? episodeId, string ownerId, string originalFileName, string storageKey, string contentType, long sizeBytes) =>
         new(episodeId, ownerId, originalFileName, storageKey, contentType, sizeBytes);
 
@@ -198,6 +200,24 @@ public sealed class MediaAsset : Entity
         TranscriptionLocale = locale.Trim();
         TranscribedAtUtc = transcribedAtUtc;
 
+        MarkUpdated();
+    }
+
+    public void SetKnowledgeSource(bool isKnowledgeSource)
+    {
+        if (isKnowledgeSource &&
+            !MediaAssetHelpers.IsSupportedDocumentType(ContentType))
+        {
+            throw new InvalidOperationException(
+                "Only supported document assets can be used as knowledge sources.");
+        }
+
+        if (IsKnowledgeSource == isKnowledgeSource)
+        {
+            return;
+        }
+
+        IsKnowledgeSource = isKnowledgeSource;
         MarkUpdated();
     }
 

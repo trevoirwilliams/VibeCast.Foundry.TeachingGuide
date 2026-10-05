@@ -16,6 +16,7 @@ namespace VibeCast.Infrastructure.Media;
 public sealed class EfMediaAssetService(
     IDbContextFactory<VibeCastDbContext> dbContextFactory,
     IBlobStorage blobStorage,
+    IKnowledgeSourceStorage knowledgeSourceStorage,
     MediaUploadValidator validator,
     ArtworkAnalysisValidator artworkValidator,
     ILogger<EfMediaAssetService> logger) : IMediaAssetService
@@ -122,6 +123,7 @@ public sealed class EfMediaAssetService(
                 a.ContentType,
                 a.SizeBytes,
                 a.Status,
+                a.IsKnowledgeSource,
                 a.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
@@ -158,6 +160,7 @@ public sealed class EfMediaAssetService(
                 asset.ContentType,
                 asset.SizeBytes,
                 asset.Status,
+                asset.IsKnowledgeSource,
                 asset.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
@@ -378,6 +381,7 @@ public sealed class EfMediaAssetService(
             asset.ContentType,
             asset.SizeBytes,
             asset.Status,
+            asset.IsKnowledgeSource,
             asset.CreatedAtUtc);
 
     public async Task<MediaContent?> OpenMediaAsync(
@@ -431,5 +435,278 @@ public sealed class EfMediaAssetService(
             Content: content,
             ContentType: asset.ContentType,
             OriginalFileName: asset.OriginalFileName);
+    }
+
+    public async Task<IReadOnlyList<MediaAssetSummary>> ListKnowledgeSourcesAsync(
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources =
+            await db.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.IsKnowledgeSource)
+                .Select(asset => new MediaAssetSummary(
+                    asset.Id,
+                    asset.EpisodeId,
+                    asset.OriginalFileName,
+                    asset.ContentType,
+                    asset.SizeBytes,
+                    asset.Status,
+                    asset.IsKnowledgeSource,
+                    asset.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        return sources
+            .OrderByDescending(source => source.CreatedAtUtc)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<MediaAssetSummary>> ListKnowledgeSourcesAsync(
+        IReadOnlyCollection<Guid> mediaAssetIds,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources =
+            await db.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.IsKnowledgeSource &&
+                    mediaAssetIds.Contains(asset.Id))
+                .Select(asset => new MediaAssetSummary(
+                    asset.Id,
+                    asset.EpisodeId,
+                    asset.OriginalFileName,
+                    asset.ContentType,
+                    asset.SizeBytes,
+                    asset.Status,
+                    asset.IsKnowledgeSource,
+                    asset.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        return sources
+            .OrderByDescending(source => source.CreatedAtUtc)
+            .ToList();
+    }
+
+    public async Task SetKnowledgeSourceAsync(
+        Guid mediaAssetId,
+        bool isKnowledgeSource,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (mediaAssetId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A media asset identifier is required.",
+                nameof(mediaAssetId));
+        }
+
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException(
+                "An authenticated owner is required.",
+                nameof(ownerId));
+        }
+
+        await using VibeCastDbContext db =
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        MediaAsset? asset = await db.MediaAssets.SingleOrDefaultAsync(
+            candidate =>
+                candidate.Id == mediaAssetId &&
+                candidate.OwnerId == ownerId,
+            cancellationToken);
+
+        if (asset is null)
+        {
+            throw new SafeApplicationException(
+                "The selected media asset was not found.");
+        }
+
+        if (!MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType))
+        {
+            throw new SafeApplicationException(
+                "Only PDF and TXT documents can currently be used as knowledge sources.");
+        }
+
+        if (isKnowledgeSource)
+        {
+            await PromoteKnowledgeSourceAsync(
+                asset,
+                db,
+                cancellationToken);
+
+            return;
+        }
+
+        await WithdrawKnowledgeSourceAsync(
+            asset,
+            db,
+            cancellationToken);
+    }
+
+    private async Task PromoteKnowledgeSourceAsync(MediaAsset asset, VibeCastDbContext db, CancellationToken cancellationToken)
+    {
+        bool wasAlreadyKnowledgeSource = asset.IsKnowledgeSource;
+
+        Stream sourceContent;
+
+        try
+        {
+            sourceContent = await blobStorage.OpenReadAsync(
+                    asset.StorageKey,
+                    cancellationToken);
+        }
+        catch (Exception exception)
+            when (exception is IOException or
+                  UnauthorizedAccessException)
+        {
+            throw new SafeApplicationException(
+                "The original source file could not be opened.",
+                exception);
+        }
+
+        await using (sourceContent)
+        {
+            StoredKnowledgeSource stored =
+                await knowledgeSourceStorage.SaveAsync(
+                    mediaAssetId: asset.Id,
+                    ownerId: asset.OwnerId,
+                    originalFileName:
+                        asset.OriginalFileName,
+                    contentType:
+                        asset.ContentType,
+                    content:
+                        sourceContent,
+                    cancellationToken:
+                        cancellationToken);
+
+            try
+            {
+                asset.SetKnowledgeSource(true);
+
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                if (!wasAlreadyKnowledgeSource)
+                {
+                    try
+                    {
+                        await knowledgeSourceStorage.DeleteAsync(
+                            asset.Id,
+                            asset.OwnerId,
+                            asset.OriginalFileName,
+                            CancellationToken.None);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        logger.LogError(
+                            cleanupException,
+                            "Failed to compensate knowledge-source Blob creation for media asset {MediaAssetId}.",
+                            asset.Id);
+                    }
+                }
+
+                throw;
+            }
+
+            logger.LogInformation(
+                "Promoted media asset {MediaAssetId} to knowledge storage at {StorageKey}.",
+                asset.Id,
+                stored.StorageKey);
+        }
+
+    }
+
+    private async Task WithdrawKnowledgeSourceAsync(
+        MediaAsset asset,
+        VibeCastDbContext db,
+        CancellationToken cancellationToken)
+    {
+        await knowledgeSourceStorage.DeleteAsync(
+            asset.Id,
+            asset.OwnerId,
+            asset.OriginalFileName,
+            cancellationToken);
+
+        asset.SetKnowledgeSource(false);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Withdrew media asset {MediaAssetId} from the knowledge store.",
+            asset.Id);
+    }
+
+    public async Task<IReadOnlyList<MediaAssetSummary>> GetKnowledgeSourcesAsync(
+        IReadOnlyCollection<Guid> mediaAssetIds,
+        string ownerId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mediaAssetIds);
+
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            throw new ArgumentException("An authenticated owner is required.", nameof(ownerId));
+        }
+
+        Guid[] requestedIds = mediaAssetIds
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToArray();
+
+        if (requestedIds.Length == 0)
+        {
+            throw new SafeApplicationException("Select at least one knowledge source.");
+        }
+
+        await using VibeCastDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<MediaAssetSummary> sources = await db.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.IsKnowledgeSource &&
+                    requestedIds.Contains(asset.Id))
+                .Select(asset =>
+                    new MediaAssetSummary(
+                        asset.Id,
+                        asset.EpisodeId,
+                        asset.OriginalFileName,
+                        asset.ContentType,
+                        asset.SizeBytes,
+                        asset.Status,
+                        asset.IsKnowledgeSource,
+                        asset.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        if (sources.Count != requestedIds.Length)
+        {
+            throw new SafeApplicationException("One or more selected knowledge sources are unavailable.");
+        }
+
+        return sources;
     }
 }

@@ -12,6 +12,7 @@ public sealed record MediaAssetSummary(
     string ContentType,
     long SizeBytes,
     MediaAssetStatus Status,
+    bool IsKnowledgeSource,
     DateTimeOffset CreatedAtUtc);
 
 public sealed record MediaUploadResult(

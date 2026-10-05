@@ -4,6 +4,10 @@ using Azure;
 using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
 using Azure.AI.Speech.Transcription;
+using Azure.Identity;
+using Azure.Search.Documents;
+using Azure.Search.Documents.KnowledgeBases;
+using Azure.Storage.Blobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +17,7 @@ using Microsoft.Extensions.Options;
 using VibeCast.Application.Abstractions.Jobs;
 using VibeCast.Application.Abstractions.Storage;
 using VibeCast.Application.Episodes;
+using VibeCast.Application.Knowledge;
 using VibeCast.Application.Media;
 using VibeCast.Application.Validation;
 using VibeCast.Infrastructure.AI;
@@ -39,6 +44,29 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<KnowledgeStorageOptions>()
+            .Bind(configuration.GetSection(KnowledgeStorageOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(
+                options =>
+                    Uri.TryCreate(
+                        options.ServiceUri,
+                        UriKind.Absolute,
+                        out Uri? uri) &&
+                    uri.Scheme == Uri.UriSchemeHttps,
+                "KnowledgeStorage:ServiceUri must be an absolute HTTPS URI.")
+            .Validate(
+                options =>
+                    Uri.TryCreate(
+                        options.SearchEndpoint,
+                        UriKind.Absolute,
+                        out Uri? uri) &&
+                    uri.Scheme ==
+                        Uri.UriSchemeHttps,
+                "KnowledgeStorage:SearchEndpoint must be an absolute HTTPS URI.")
+            .ValidateOnStart();
+
+
         services.AddOptions<BackgroundJobsOptions>()
             .Bind(configuration.GetSection(BackgroundJobsOptions.SectionName))
             .ValidateDataAnnotations()
@@ -59,7 +87,46 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
+        services.AddSingleton<BlobServiceClient>(serviceProvider =>
+        {
+            KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                    .Value;
+
+            return new BlobServiceClient(
+                new Uri(
+                    options.ServiceUri,
+                    UriKind.Absolute),
+                new DefaultAzureCredential());
+        });
+
+        services.AddSingleton<BlobContainerClient>(serviceProvider =>
+            {
+                KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>()
+                        .Value;
+
+                BlobServiceClient blobServiceClient = serviceProvider.GetRequiredService<BlobServiceClient>();
+
+                return blobServiceClient.GetBlobContainerClient(options.ContainerName);
+            });
+
+        services.AddSingleton<KnowledgeBaseRetrievalClient>(
+            serviceProvider =>
+            {
+                KnowledgeStorageOptions options = serviceProvider.GetRequiredService<IOptions<KnowledgeStorageOptions>>().Value;
+
+                SearchClientOptions clientOptions = new(SearchClientOptions.ServiceVersion.V2026_04_01);
+
+                return new KnowledgeBaseRetrievalClient(
+                    new Uri(options.SearchEndpoint, UriKind.Absolute),
+                    options.KnowledgeBaseName,
+                    new DefaultAzureCredential(),
+                    clientOptions);
+            });
+
+        services.AddSingleton<IKnowledgeSourceStorage, AzureBlobKnowledgeSourceStorage>();
+
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
 
@@ -206,6 +273,7 @@ public static class DependencyInjection
         services.AddScoped<IEpisodeArtworkGenerationService, FoundryEpisodeArtworkGenerationService>();
         services.AddScoped<IEpisodeTranscriptionService, FoundryEpisodeTranscriptionService>();
         services.AddScoped<IEpisodeResourceAnalysisService, FoundryEpisodeResourceAnalysisService>();
+        services.AddScoped<IGroundedBlogGenerationService, FoundryGroundedBlogGenerationService>();
         return services;
     }
 }
