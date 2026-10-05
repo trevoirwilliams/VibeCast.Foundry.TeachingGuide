@@ -52,6 +52,8 @@ public sealed class Episode : Entity
 
     public string? PlanFormatPolicyVersion { get; private set; }
 
+    public IList<EpisodeSupportingSource> SupportingSources { get; private set; } = new List<EpisodeSupportingSource>();
+
     public static Episode Create(
         string title,
         string? description,

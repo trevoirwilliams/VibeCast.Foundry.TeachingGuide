@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VibeCast.Application.Episodes;
+using VibeCast.Application.Media;
 using VibeCast.Domain.Episodes;
 using VibeCast.Infrastructure.Data;
 
@@ -80,19 +81,100 @@ public class EfEpisodeService(IDbContextFactory<VibeCastDbContext> dbContextFact
 
         EpisodePlanningResult? acceptedPlan = CreateAcceptedPlan(episode);
 
+        List<MediaAssetSummary> mediaAssets = await dbContext.MediaAssets
+            .AsNoTracking()
+            .Where(asset =>
+                asset.OwnerId == ownerId &&
+                asset.EpisodeId == episodeId)
+            .Select(asset => new MediaAssetSummary(
+                asset.Id,
+                asset.EpisodeId,
+                asset.OriginalFileName,
+                asset.ContentType,
+                asset.SizeBytes,
+                asset.Status,
+                asset.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        IReadOnlyList<MediaAssetSummary> orderedMediaAssets = mediaAssets
+            .OrderByDescending(asset => asset.CreatedAtUtc)
+            .ToList();
+
+        List<EpisodeTranscript>? transcripts =
+            await dbContext.MediaAssets
+                .AsNoTracking()
+                .Where(asset =>
+                    asset.OwnerId == ownerId &&
+                    asset.EpisodeId == episodeId &&
+                    asset.TranscribedAtUtc != null &&
+                    asset.TranscriptText != null)
+                .Select(asset =>
+                    new EpisodeTranscript(
+                        asset.Id,
+                        episodeId,
+                        asset.OriginalFileName,
+                        asset.TranscriptText!,
+                        asset.TranscriptionLocale!,
+                        asset.TranscribedAtUtc!.Value))
+                .ToListAsync(cancellationToken);
+
+        var transcript = transcripts
+            .OrderByDescending(q => q.TranscribedAtUtc)
+            .FirstOrDefault();
+
+        var supportingSourceEntities = await dbContext.EpisodeSupportingSources
+            .AsNoTracking()
+            .Include(s => s.MediaAsset)
+            .Where(s =>
+                s.OwnerId == ownerId &&
+                s.EpisodeId == episodeId)
+            .Select(s => new
+            {
+                s.Id,
+                s.MediaAssetId,
+                MediaAssetOriginalFileName = s.MediaAsset != null ? s.MediaAsset.OriginalFileName : string.Empty,
+                MediaAssetContentType = s.MediaAsset != null ? s.MediaAsset.ContentType : string.Empty,
+                s.Summary,
+                s.RelevanceRationale,
+                s.RelevantPointsJson,
+                s.MatchedEvidenceRequirementsJson,
+                s.AnalyzerId,
+                s.RelevancePromptVersion,
+                s.AnalyzedAtUtc
+            })
+            .ToListAsync(cancellationToken);
+
+        List<EpisodeSupportingSourceSummary> supportingSources = supportingSourceEntities
+            .Select(s => new EpisodeSupportingSourceSummary(
+                s.Id,
+                s.MediaAssetId,
+                s.MediaAssetOriginalFileName,
+                s.MediaAssetContentType,
+                s.Summary,
+                s.RelevanceRationale,
+                JsonSerializer.Deserialize<string[]>(s.RelevantPointsJson ?? string.Empty, JsonOptions) ?? Array.Empty<string>(),
+                JsonSerializer.Deserialize<string[]>(s.MatchedEvidenceRequirementsJson ?? string.Empty, JsonOptions) ?? Array.Empty<string>(),
+                s.AnalyzerId,
+                s.RelevancePromptVersion,
+                s.AnalyzedAtUtc))
+            .ToList();
+
         return new EpisodeDetails(
-            Id: episode.Id,
-            Title: episode.Title,
-            Description: episode.Description,
-            TargetAudience: episode.TargetAudience,
-            Objective: episode.Objective,
-            Tone: episode.Tone,
-            Language: episode.Language,
-            PlannedPublishDate: episode.PlannedPublishDate,
-            Status: episode.Status,
-            CreatedAtUtc: episode.CreatedAtUtc,
-            UpdatedAtUtc: episode.UpdatedAtUtc,
-            AcceptedPlan: acceptedPlan);
+                    Id: episode.Id,
+                    Title: episode.Title,
+                    Description: episode.Description,
+                    TargetAudience: episode.TargetAudience,
+                    Objective: episode.Objective,
+                    Tone: episode.Tone,
+                    Language: episode.Language,
+                    PlannedPublishDate: episode.PlannedPublishDate,
+                    Status: episode.Status,
+                    CreatedAtUtc: episode.CreatedAtUtc,
+                    UpdatedAtUtc: episode.UpdatedAtUtc,
+                    AcceptedPlan: acceptedPlan,
+                    Transcript: transcript,
+                    SupportingSources: supportingSources,
+                    MediaAssets: orderedMediaAssets);
     }
 
     private EpisodePlanningResult? CreateAcceptedPlan(Episode episode)

@@ -1,6 +1,9 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using Azure;
+using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
+using Azure.AI.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +19,7 @@ using VibeCast.Infrastructure.AI;
 using VibeCast.Infrastructure.Data;
 using VibeCast.Infrastructure.Episodes;
 using VibeCast.Infrastructure.Jobs;
+using VibeCast.Infrastructure.Media;
 using VibeCast.Infrastructure.Options;
 using VibeCast.Infrastructure.Storage;
 
@@ -45,19 +49,37 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<SpeechOptions>()
+            .Bind(configuration.GetSection(SpeechOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<ContentUnderstandingOptions>()
+            .Bind(configuration.GetSection(ContentUnderstandingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IBlobStorage, LocalBlobStorage>();
         services.AddSingleton<IBackgroundJobQueue, ChannelBackgroundJobQueue>();
         services.AddHostedService<BackgroundJobWorker>();
 
         services.AddSingleton<IValidator<CreateEpisodeRequest>, EpisodeDraftValidator>();
-        services.AddSingleton<IValidator<MediaUploadRequest>, MediaUploadValidator>();
+        services.AddSingleton<IValidator<SupportingSourceAssessmentValidationRequest>, SupportingSourceAssessmentValidator>();
+        services.AddSingleton<MediaUploadValidator>();
+        services.AddSingleton<IValidator<MediaUploadRequest>>(sp =>
+            sp.GetRequiredService<MediaUploadValidator>());
+        services.AddSingleton<ArtworkAnalysisValidator>();
+        services.AddSingleton<IValidator<ArtworkAnalysis>>(
+            serviceProvider => serviceProvider.GetRequiredService<ArtworkAnalysisValidator>());
+
         services.AddSingleton<IValidator<EpisodePlan>, EpisodePlanValidator>();
         services.AddSingleton<IValidator<EpisodeFormatGuidanceValidationRequest>, EpisodeFormatGuidanceValidator>();
 
         services.AddScoped<IEpisodeService, EfEpisodeService>();
         services.AddScoped<IEpisodeFormatPolicyProvider, EfEpisodeFormatPolicyProvider>();
+        services.AddScoped<IMediaAssetService, EfMediaAssetService>();
 
-        services.AddSingleton<AzureOpenAIClient>(serviceProvider =>
+        IServiceCollection serviceCollection = services.AddSingleton(serviceProvider =>
         {
             FoundryOptions options = serviceProvider
                 .GetRequiredService<IOptions<FoundryOptions>>()
@@ -85,28 +107,28 @@ public static class DependencyInjection
 
         services.AddSingleton<IChatClient>(serviceProvider =>
         {
-        FoundryOptions options = serviceProvider
-            .GetRequiredService<IOptions<FoundryOptions>>()
-            .Value;
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
 
-        AzureOpenAIClient azureOpenAIClient =
-            serviceProvider.GetRequiredService<AzureOpenAIClient>();
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider.GetRequiredService<AzureOpenAIClient>();
 
-        ILogger<ChatResponseLoggingClient> logger =
-            serviceProvider.GetRequiredService<
-                ILogger<ChatResponseLoggingClient>>();
+            ILogger<ChatResponseLoggingClient> logger =
+                serviceProvider.GetRequiredService<
+                    ILogger<ChatResponseLoggingClient>>();
 
-        ILoggerFactory loggerFactory =
-           serviceProvider.GetRequiredService<
-               ILoggerFactory>();
+            ILoggerFactory loggerFactory =
+               serviceProvider.GetRequiredService<
+                   ILoggerFactory>();
 
-        IChatClient providerClient = azureOpenAIClient
-           .GetChatClient(options.ChatModelDeployment)
-           .AsIChatClient();
+            IChatClient providerClient = azureOpenAIClient
+               .GetChatClient(options.ChatModelDeployment)
+               .AsIChatClient();
 
-        IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
-            providerClient,
-            logger);
+            IChatClient monitoredProviderClient = new ChatResponseLoggingClient(
+                providerClient,
+                logger);
 
             return new ChatClientBuilder(monitoredProviderClient)
             .UseFunctionInvocation(
@@ -123,6 +145,49 @@ public static class DependencyInjection
             .Build(serviceProvider);
         });
 
+        #pragma warning disable MEAI001
+        services.AddSingleton<IImageGenerator>(serviceProvider =>
+        {
+            FoundryOptions options = serviceProvider
+                .GetRequiredService<IOptions<FoundryOptions>>()
+                .Value;
+
+            AzureOpenAIClient azureOpenAIClient =
+                serviceProvider
+                    .GetRequiredService<AzureOpenAIClient>();
+
+            return azureOpenAIClient
+                .GetImageClient(options.ImageModelDeployment)
+                .AsIImageGenerator();
+        });
+#pragma warning restore MEAI001
+
+        services.AddSingleton<TranscriptionClient>(
+        serviceProvider =>
+        {
+            SpeechOptions options = serviceProvider
+                .GetRequiredService<IOptions<SpeechOptions>>()
+                .Value;
+
+            return new TranscriptionClient(
+                new Uri(options.Endpoint, UriKind.Absolute),
+                new ApiKeyCredential(options.ApiKey));
+        });
+
+        services.AddSingleton<ContentUnderstandingClient>(
+        serviceProvider => {
+            ContentUnderstandingOptions options = serviceProvider
+                .GetRequiredService<IOptions<ContentUnderstandingOptions>>()
+                .Value;
+
+            return new ContentUnderstandingClient(
+                new Uri(
+                    options.Endpoint,
+                    UriKind.Absolute),
+                new AzureKeyCredential(
+                    options.ApiKey));
+        });
+
         services.AddScoped<
             IEpisodeConceptGenerator,
             FoundryEpisodeConceptGenerator>();
@@ -137,6 +202,10 @@ public static class DependencyInjection
             FoundryEpisodePlanningWithToolService>(
             EpisodePlanningServiceKeys.WithTools);
 
+        services.AddScoped<IArtworkAnalysisService, FoundryArtworkAnalysisService>();
+        services.AddScoped<IEpisodeArtworkGenerationService, FoundryEpisodeArtworkGenerationService>();
+        services.AddScoped<IEpisodeTranscriptionService, FoundryEpisodeTranscriptionService>();
+        services.AddScoped<IEpisodeResourceAnalysisService, FoundryEpisodeResourceAnalysisService>();
         return services;
     }
 }

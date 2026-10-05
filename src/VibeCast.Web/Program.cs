@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using VibeCast.Application.Media;
 using VibeCast.Infrastructure;
 using VibeCast.Infrastructure.Data;
 using VibeCast.Web;
@@ -116,6 +118,42 @@ app.UseAntiforgery();
 
 app.MapHealthChecks("/health");
 app.MapRazorPages();
+app.MapGet("/media/{mediaAssetId:guid}/content",
+    async (
+        Guid mediaAssetId,
+        ClaimsPrincipal user,
+        HttpContext httpContext,
+        IMediaAssetService mediaAssetService,
+        CancellationToken cancellationToken) =>
+    {
+        string? ownerId =
+            user.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(ownerId))
+        {
+            return Results.Unauthorized();
+        }
+
+        MediaContent? media = await mediaAssetService.OpenMediaAsync(
+            mediaAssetId,
+            ownerId,
+            cancellationToken);
+
+        if (media is null)
+        {
+            return Results.NotFound();
+        }
+
+        httpContext.Response.Headers.CacheControl =
+            "private, no-store";
+
+        return Results.Stream(
+            media.Content,
+            contentType: media.ContentType,
+            enableRangeProcessing: true);
+    }).RequireAuthorization();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

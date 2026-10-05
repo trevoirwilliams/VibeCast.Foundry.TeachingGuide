@@ -1,12 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Azure.AI.Speech.Transcription" />
+    <PackageReference Include="Azure.AI.ContentUnderstanding" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
     <PackageReference Include="OpenAI" />
     <PackageReference Include="Azure.AI.OpenAI" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VibeCast.Application\VibeCast.Application.csproj" />

@@ -5,10 +5,15 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using VibeCast.Application.Episodes
+@using VibeCast.Application.Media
 @using VibeCast.Application.Validation
 @using VibeCast.Domain.Episodes
+@using VibeCast.Domain.Media
 @using VibeCast.Infrastructure.AI
 @inject IEpisodeService EpisodeService
+@inject IEpisodeArtworkGenerationService EpisodeArtworkGenerationService
+@inject IEpisodeTranscriptionService EpisodeTranscriptionService
+@inject IEpisodeResourceAnalysisService EpisodeResourceAnalysisService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<EpisodeWorkspace> Logger
 
@@ -237,6 +242,10 @@ else if (episode is not null)
                 }
 
                 <EpisodePlanPanel Result="planningResult" />
+                @if (planIsPersisted)
+                {
+                    <EpisodeSupportingSourcesPanel Sources="episode.SupportingSources" />
+                }
             }
             else
             {
@@ -267,46 +276,264 @@ else if (episode is not null)
         {
             <div class="split-panel">
                 <div>
-                    <h2>Transcript workspace</h2>
-                    <p>
-                        Review source audio, speaker segments,
-                        timestamps, and corrected text.
-                    </p>
-
-                    <div class="empty-state compact">
-                        <div class="empty-icon">Aa</div>
+                    <div class="section-heading">
                         <div>
-                            <strong>No transcript yet</strong>
+                            <h2>Episode transcript</h2>
                             <p>
-                                Speech processing is implemented in
-                                the multimodal section.
+                                Select an attached recording, preview the audio,
+                                and transcribe it with Microsoft Foundry Speech.
                             </p>
                         </div>
+
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="@($"/media/upload?episodeId={episode.Id:D}")">
+                            Add recording
+                        </a>
                     </div>
+
+                    @if (!string.IsNullOrWhiteSpace(transcriptionError))
+                    {
+                        <div class="alert alert-danger"
+                             role="alert">
+                            @transcriptionError
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(transcriptionMessage))
+                    {
+                        <div class="alert alert-success"
+                             role="status">
+                            @transcriptionMessage
+                        </div>
+                    }
+
+                    @if (AudioAssets.Count == 0)
+                    {
+                        <div class="empty-state compact">
+                            <div class="empty-icon">AU</div>
+
+                            <div>
+                                <strong>No episode recording attached</strong>
+
+                                <p>
+                                    Add an MP3, WAV, or M4A recording
+                                    before starting transcription.
+                                </p>
+
+                                <a class="btn btn-sm btn-primary mt-2"
+                                   href="@($"/media/upload?episodeId={episode.Id:D}")">
+                                    Add episode recording
+                                </a>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="transcript-source-card">
+                            <label class="form-label"
+                                   for="transcription-source">
+                                Source recording
+                            </label>
+
+                            <select id="transcription-source"
+                                    class="form-select"
+                                    value="@selectedTranscriptionMediaAssetId"
+                                    disabled="@isTranscribing"
+                                    @onchange="SelectTranscriptionSource">
+                                @foreach (MediaAssetSummary asset in AudioAssets)
+                                {
+                                    <option value="@asset.Id">
+                                        @asset.OriginalFileName
+                                    </option>
+                                }
+                            </select>
+                          
+                            @if (SelectedAudioAsset is not null)
+                            {
+                                <div class="audio-source-meta">
+                                    <span>
+                                        @SelectedAudioAsset.ContentType
+                                    </span>
+
+                                    <span>
+                                        @MediaAssetHelpers.FormatSize(
+                                            SelectedAudioAsset.SizeBytes)
+                                    </span>
+
+                                    <span>
+                                        @SelectedAudioAsset.Status
+                                    </span>
+                                </div>
+
+                                <audio class="episode-audio-player"
+                                       controls
+                                       preload="metadata">
+                                    <source src="@($"/media/{SelectedAudioAsset.Id:D}/content")"
+                                            type="@SelectedAudioAsset.ContentType" />
+
+                                    Your browser does not support audio playback.
+                                </audio>
+
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <button class="btn btn-primary"
+                                            type="button"
+                                            disabled="@isTranscribing"
+                                            @onclick="TranscribeSelectedRecordingAsync">
+                                        @(isTranscribing
+                                            ? "Transcribing recording..."
+                                            : "Transcribe recording")
+                                    </button>
+
+                                    @if (isTranscribing)
+                                    {
+                                        <button class="btn btn-outline-secondary"
+                                                type="button"
+                                                @onclick="CancelTranscription">
+                                            Stop transcription
+                                        </button>
+                                    }
+
+                                    <a class="btn btn-outline-secondary"
+                                       href="@($"/media/{SelectedAudioAsset.Id:D}/content")">
+                                        Open audio
+                                    </a>
+                                </div>
+                            }
+
+                            @if (isTranscribing)
+                            {
+                                <div class="empty-state compact mt-3">
+                                    <div class="empty-icon">…</div>
+
+                                    <div>
+                                        <strong>
+                                            Transcribing episode recording
+                                        </strong>
+
+                                        <p>
+                                            Microsoft Foundry Speech is processing the
+                                            selected audio and returning transcript text.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                            else if (episode.Transcript is not null)
+                            {
+                                <div class="transcript-result">
+                                    <div class="section-heading">
+                                        <div>
+                                            <h2>Persisted transcript</h2>
+
+                                            <p>
+                                                Transcript generated from
+                                                @episode.Transcript.SourceFileName.
+                                            </p>
+                                        </div>
+
+                                        <span class="status-badge badge-success">
+                                            Ready
+                                        </span>
+                                    </div>
+
+                                    <div class="transcript-meta">
+                                        <span>
+                                            <strong>Locale</strong>
+                                            @episode.Transcript.Locale
+                                        </span>
+
+                                        <span>
+                                            <strong>Generated</strong>
+                                            @episode.Transcript.TranscribedAtUtc.ToString(
+                                            "MMM d, yyyy h:mm tt",
+                                            CultureInfo.InvariantCulture)
+                                        </span>
+                                    </div>
+
+                                    <div class="transcript-text">
+                                        @episode.Transcript.Text
+                                    </div>
+                                </div>
+                            }
+                            else if (AudioAssets.Count > 0)
+                            {
+                                <div class="empty-state compact mt-3">
+                                    <div class="empty-icon">Aa</div>
+
+                                    <div>
+                                        <strong>No transcript yet</strong>
+
+                                        <p>
+                                            Select the episode recording and start
+                                            transcription.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <aside class="panel-muted">
+                            <h3>Transcription settings</h3>
+
+                            <label class="form-label">
+                                Episode language
+                            </label>
+
+                            <input class="form-control"
+                                   value="@episode.Language"
+                                   disabled />
+
+                            <small class="d-block mt-2 text-muted">
+                                VibeCast maps the episode language to the
+                                corresponding Speech locale before transcription.
+                            </small>
+
+                            <label class="form-label mt-4">
+                                Speaker identification
+                            </label>
+
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       disabled />
+
+                                <label class="form-check-label">
+                                    Detect speakers
+                                </label>
+                            </div>
+
+                            <small class="d-block mt-2 text-muted">
+                                Diarization is intentionally not enabled
+                                in this lesson.
+                            </small>
+
+                            @if (SelectedAudioAsset is not null)
+                            {
+                                <hr />
+
+                                <h3>Selected source</h3>
+
+                                <dl class="detail-grid single">
+                                    <dt>File</dt>
+                                    <dd>
+                                        @SelectedAudioAsset.OriginalFileName
+                                    </dd>
+
+                                    <dt>Type</dt>
+                                    <dd>
+                                        @SelectedAudioAsset.ContentType
+                                    </dd>
+
+                                    <dt>Size</dt>
+                                    <dd>
+                                        @MediaAssetHelpers.FormatSize(
+                                            SelectedAudioAsset.SizeBytes)
+                                    </dd>
+                                </dl>
+                            }
+                        </aside>
+                    }
+                    
                 </div>
-
-                <aside class="panel-muted">
-                    <h3>Transcript controls</h3>
-
-                    <label class="form-label">Language</label>
-                    <select class="form-select" disabled>
-                        <option>@episode.Language</option>
-                    </select>
-
-                    <label class="form-label mt-3">
-                        Speaker identification
-                    </label>
-
-                    <div class="form-check">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               disabled />
-
-                        <label class="form-check-label">
-                            Detect speakers
-                        </label>
-                    </div>
-                </aside>
             </div>
         }
         else if (selectedTab == "Media")
@@ -315,24 +542,176 @@ else if (episode is not null)
                 <div>
                     <h2>Episode media</h2>
                     <p>
-                        Associate audio, images, documents, and
+                        Related audio, images, documents, and
                         generated promotional assets.
                     </p>
                 </div>
 
-                <a class="btn btn-sm btn-outline-primary"
-                   href="/media/upload">
-                    Add media
-                </a>
-            </div>
+                @if (episode.AcceptedPlan is null)
+                {
+                    <div class="alert alert-warning" role="status">
+                        Save an accepted episode plan before generating
+                        promotional artwork.
+                    </div>
+                }
 
-            <div class="media-card-grid">
-                <div class="media-tile placeholder-tile">
-                    <div>＋</div>
-                    <strong>Add source media</strong>
-                    <small>Files remain unprocessed.</small>
+                @if (!string.IsNullOrWhiteSpace(artworkGenerationError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @artworkGenerationError
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(artworkGenerationMessage))
+                {
+                    <div class="alert alert-success" role="status">
+                        @artworkGenerationMessage
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(resourceAnalysisError))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @resourceAnalysisError
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(resourceAnalysisMessage))
+                {
+                    <div class="alert alert-info" role="status">
+                        @resourceAnalysisMessage
+                    </div>
+                }
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-sm btn-primary"
+                            type="button"
+                            disabled="@(isGeneratingArtwork || episode.AcceptedPlan is null)"
+                            @onclick="GeneratePromotionalArtworkAsync">
+                        @(isGeneratingArtwork
+                            ? "Generating artwork..."
+                            : "Generate promotional artwork")
+                    </button>
+
+                    <a class="btn btn-sm btn-outline-primary"
+                       href="@($"/media/upload?episodeId={episode.Id:D}")">
+                        Add media
+                    </a>
                 </div>
             </div>
+
+            @if (episode.MediaAssets.Count == 0)
+            {
+                <div class="empty-state compact">
+                    <a class="media-tile placeholder-tile" href="@($"/media/upload?episodeId={episode.Id:D}")">
+                        <div>＋</div>
+                        <strong>Add source media</strong>
+                        <small>Upload another validated asset.</small>
+                    </a>
+
+                    <div>
+                        <strong>No media assets yet</strong>
+                        <p>
+                            Upload source files or artwork tied to this episode.
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="media-card-grid">
+                    @foreach (MediaAssetSummary asset in episode.MediaAssets)
+                    {
+                        <article class="media-tile">
+                            @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
+                            {
+                                <div class="media-preview preview-image">
+                                    <img src="@($"/media/{asset.Id:D}/content")"
+                                         alt=""
+                                         loading="lazy" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="media-preview @MediaAssetHelpers.GetPreviewClass(asset.ContentType)">
+                                    <span>
+                                        @MediaAssetHelpers.GetTypeCode(asset.ContentType)
+                                    </span>
+                                </div>
+                            }
+
+                            <div class="media-copy">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <strong>@asset.OriginalFileName</strong>
+
+                                    <span class="status-badge badge-info">
+                                        @asset.Status
+                                    </span>
+                                </div>
+
+                                <small>
+                                    @asset.ContentType · @MediaAssetHelpers.FormatSize(asset.SizeBytes)
+                                </small>
+
+                                <p>
+                                    @MediaAssetHelpers.GetMediaSummary(asset.ContentType)
+                                </p>
+
+                                <div class="media-meta">
+                                    <span>
+                                        Attached to this episode
+                                    </span>
+
+                                    <span>
+                                        @asset.CreatedAtUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
+                                    </span>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="@($"/media/{asset.Id:D}/content")">
+                                        Open file
+                                    </a>
+
+                                    @if (MediaAssetHelpers.IsArtwork(asset.ContentType))
+                                    {
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="@($"/media/{asset.Id:D}/artwork")">
+                                            Review artwork
+                                        </a>
+                                    }
+                                    @if (MediaAssetHelpers.IsSupportedDocumentType(asset.ContentType))
+                                    {
+                                        bool alreadyAdded = episode.SupportingSources.Any(source =>
+                                                    source.MediaAssetId == asset.Id);
+
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                type="button"
+                                                disabled="@( episode.AcceptedPlan is null || analyzingResourceId.HasValue)"
+                                                @onclick="() => AnalyzeSupportingResourceAsync(asset)">
+
+                                                @if (analyzingResourceId == asset.Id)
+                                                {
+                                                    <span>Assessing relevance...</span>
+                                                }
+                                                else if (alreadyAdded)
+                                                {
+                                                    <span>Reassess relevance</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Assess relevance</span>
+                                                }
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </article>
+                    }
+
+
+                </div>
+            }
         }
         else if (selectedTab == "Knowledge")
         {
@@ -449,7 +828,7 @@ else if (episode is not null)
 
     private static readonly string[] tabs =
     [
-        "Overview",
+    "Overview",
         "AI Planner",
         "Transcript",
         "Media",
@@ -466,6 +845,10 @@ else if (episode is not null)
     private string? planError;
     private bool isGeneratingPlan;
     private CancellationTokenSource? planningCancellation;
+    private CancellationTokenSource? artworkGenerationCancellation;
+    private CancellationTokenSource? transcriptionCancellation;
+    private CancellationTokenSource? resourceAnalysisCancellation;
+
     private IReadOnlyList<ValidationFailure> planValidationFailures = [];
     private string? currentOwnerId;
 
@@ -476,6 +859,32 @@ else if (episode is not null)
     private string? planSaveMessage;
 
     private string? planSaveError;
+    private bool isGeneratingArtwork;
+    private string? artworkGenerationError;
+    private string? artworkGenerationMessage;
+    private string? transcriptionMessage;
+    private string? transcriptionError;
+    private Guid? selectedTranscriptionMediaAssetId;
+    private bool isTranscribing;
+
+    private IReadOnlyList<MediaAssetSummary> AudioAssets =>
+    episode?.MediaAssets
+        .Where(asset =>
+            MediaAssetHelpers.IsAudio(asset.ContentType))
+        .ToArray()
+    ?? [];
+
+    private MediaAssetSummary? SelectedAudioAsset =>
+    episode?.MediaAssets
+        .FirstOrDefault(asset =>
+            asset.Id == selectedTranscriptionMediaAssetId &&
+            MediaAssetHelpers.IsAudio(asset.ContentType));
+
+    private Guid? analyzingResourceId;
+
+    private string? resourceAnalysisMessage;
+
+    private string? resourceAnalysisError;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -530,8 +939,36 @@ else if (episode is not null)
             planningResult = episode?.AcceptedPlan;
 
             planIsPersisted = planningResult is not null;
+
+            if (episode is not null)
+            {
+                IReadOnlyList<MediaAssetSummary> audioAssets =
+                    episode.MediaAssets
+                        .Where(asset =>
+                            MediaAssetHelpers.IsAudio(
+                                asset.ContentType))
+                        .ToArray();
+
+                bool currentSelectionIsValid =
+                    selectedTranscriptionMediaAssetId is Guid selectedId &&
+                    audioAssets.Any(asset =>
+                        asset.Id == selectedId);
+
+                if (!currentSelectionIsValid)
+                {
+                    Guid? transcriptSourceId =
+                        episode.Transcript?.MediaAssetId;
+
+                    selectedTranscriptionMediaAssetId =
+                        transcriptSourceId is Guid sourceId &&
+                        audioAssets.Any(asset =>
+                            asset.Id == sourceId)
+                            ? sourceId
+                            : audioAssets.FirstOrDefault()?.Id;
+                }
+            }
         }
-        catch
+        catch(Exception e)
         {
             loadError =
                 "VibeCast could not load the episode workspace.";
@@ -666,17 +1103,6 @@ else if (episode is not null)
         planningCancellation?.Cancel();
     }
 
-    public void Dispose()
-    {
-        CancellationTokenSource? cancellation =
-            Interlocked.Exchange(
-                ref planningCancellation,
-                null);
-
-        cancellation?.Cancel();
-        cancellation?.Dispose();
-    }
-
     private async Task SaveAcceptedPlanAsync()
     {
         if (episode is null || planningResult is null || string.IsNullOrWhiteSpace(currentOwnerId) ||
@@ -715,6 +1141,273 @@ else if (episode is not null)
         finally
         {
             isSavingPlan = false;
+        }
+    }
+
+    private async Task GeneratePromotionalArtworkAsync()
+    {
+        if (episode is null || episode.AcceptedPlan is null || string.IsNullOrWhiteSpace(currentOwnerId)
+          || isGeneratingArtwork)
+        {
+            return;
+        }
+
+        selectedTab = "Media";
+        artworkGenerationMessage = null;
+        artworkGenerationError = null;
+
+        artworkGenerationCancellation?.Cancel();
+        artworkGenerationCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromSeconds(90));
+        artworkGenerationCancellation = currentCancellation;
+
+        isGeneratingArtwork = true;
+
+        try
+        {
+            await EpisodeArtworkGenerationService
+                .GenerateAsync(
+                    episode.Id,
+                    currentOwnerId,
+                    currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Media";
+
+            artworkGenerationMessage =
+                "Promotional artwork was generated and " +
+                "added to this episode.";
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            artworkGenerationError =
+                "Artwork generation was cancelled or exceeded " +
+                "the 90-second time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to generate promotional artwork " +
+                "for episode {EpisodeId}.",
+                episode.Id);
+
+            artworkGenerationError =
+                "VibeCast could not generate promotional artwork. " +
+                "Verify the image model configuration and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    artworkGenerationCancellation,
+                    currentCancellation))
+            {
+                artworkGenerationCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+            isGeneratingArtwork = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        CancellationTokenSource? planning =
+            Interlocked.Exchange(
+                ref planningCancellation,
+                null);
+
+        planning?.Cancel();
+        planning?.Dispose();
+
+        CancellationTokenSource? artwork =
+            Interlocked.Exchange(
+                ref artworkGenerationCancellation,
+                null);
+
+        artwork?.Cancel();
+        artwork?.Dispose();
+
+        CancellationTokenSource? transcription = Interlocked.Exchange(
+        ref transcriptionCancellation,
+        null);
+
+        transcription?.Cancel();
+        transcription?.Dispose();
+
+        CancellationTokenSource? resourceAnalysis = Interlocked.Exchange(
+        ref resourceAnalysisCancellation,
+        null);
+
+        resourceAnalysis?.Cancel();
+        resourceAnalysis?.Dispose();
+    }
+
+    private async Task TranscribeSelectedRecordingAsync()
+    {
+        if (episode is null || SelectedAudioAsset is null || string.IsNullOrWhiteSpace(currentOwnerId)
+          || isTranscribing)
+        {
+            return;
+        }
+
+
+        MediaAssetSummary source = SelectedAudioAsset;
+
+        selectedTab = "Transcript";
+
+        transcriptionError = null;
+        transcriptionMessage = null;
+
+        transcriptionCancellation?.Cancel();
+        transcriptionCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromMinutes(2));
+        transcriptionCancellation = currentCancellation;
+
+        isTranscribing = true;
+
+        try
+        {
+            await EpisodeTranscriptionService.TranscribeAsync(
+                    source.Id,
+                    currentOwnerId,
+                    currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Transcript";
+
+            selectedTranscriptionMediaAssetId = source.Id;
+
+            transcriptionMessage =
+                "The episode recording was transcribed " +
+                "and the transcript was saved.";
+        }
+        catch (OperationCanceledException)
+            when (currentCancellation.IsCancellationRequested)
+        {
+            transcriptionError =
+                "Transcription was cancelled or exceeded " +
+                "the two-minute time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to transcribe media asset " +
+                "{MediaAssetId} for episode {EpisodeId}.",
+                source.Id,
+                episode.Id);
+
+            transcriptionError =
+                "VibeCast could not transcribe the selected " +
+                "recording. Verify the Speech configuration " +
+                "and retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    transcriptionCancellation,
+                    currentCancellation))
+            {
+                transcriptionCancellation = null;
+            }
+
+            currentCancellation.Dispose();
+
+            isTranscribing = false;
+        }
+    }
+
+    private void CancelTranscription()
+    {
+        transcriptionCancellation?.Cancel();
+    }
+
+    private void SelectTranscriptionSource(ChangeEventArgs args)
+    {
+        transcriptionMessage = null;
+        transcriptionError = null;
+
+        selectedTranscriptionMediaAssetId =
+            Guid.TryParse(
+                args.Value?.ToString(),
+                out Guid mediaAssetId)
+                ? mediaAssetId
+                : null;
+    }
+
+    private async Task AnalyzeSupportingResourceAsync(MediaAssetSummary asset)
+    {
+        if (episode is null || episode.AcceptedPlan is null || string.IsNullOrWhiteSpace(currentOwnerId) ||analyzingResourceId.HasValue)
+        {
+            return;
+        }
+
+        selectedTab = "Media";
+
+        resourceAnalysisMessage = null;
+        resourceAnalysisError = null;
+
+        resourceAnalysisCancellation?.Cancel();
+        resourceAnalysisCancellation?.Dispose();
+
+        CancellationTokenSource currentCancellation = new(TimeSpan.FromMinutes(2));
+
+        resourceAnalysisCancellation = currentCancellation;
+        analyzingResourceId = asset.Id;
+
+        try
+        {
+            EpisodeResourceAnalysisResult result =
+                await EpisodeResourceAnalysisService
+                    .AnalyzeAsync(
+                        episode.Id,
+                        asset.Id,
+                        currentOwnerId,
+                        currentCancellation.Token);
+
+            await LoadEpisodeAsync();
+
+            selectedTab = "Media";
+
+            resourceAnalysisMessage = result.Message;
+        }
+        catch (OperationCanceledException) when (currentCancellation.IsCancellationRequested)
+        {
+            resourceAnalysisError = "Resource analysis was cancelled or exceeded the two-minute time limit.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to assess supporting resource " +
+                "{MediaAssetId} for episode {EpisodeId}.",
+                asset.Id,
+                episode.Id);
+
+            resourceAnalysisError =
+                "VibeCast could not assess this resource. " +
+                "Verify the Content Understanding and " +
+                "Foundry configuration, then retry.";
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    resourceAnalysisCancellation,
+                    currentCancellation))
+            {
+                resourceAnalysisCancellation =
+                    null;
+            }
+
+            currentCancellation.Dispose();
+
+            analyzingResourceId = null;
         }
     }
 }

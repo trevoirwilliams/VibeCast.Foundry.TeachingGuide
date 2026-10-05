@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VibeCast.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using VibeCast.Infrastructure.Data;
 namespace VibeCast.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(VibeCastDbContext))]
-    partial class VibeCastDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828192232_AddMediTranscription")]
+    partial class AddMediTranscription
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -286,72 +289,6 @@ namespace VibeCast.Infrastructure.Data.Migrations
                     b.HasIndex("IsActive", "EffectiveFromUtc");
 
                     b.ToTable("EpisodeFormatPolicies", (string)null);
-                });
-
-            modelBuilder.Entity("VibeCast.Domain.Episodes.EpisodeSupportingSource", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("AnalyzedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AnalyzerId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("EpisodeId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MatchedEvidenceRequirementsJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("MediaAssetId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OwnerId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RelevancePromptVersion")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RelevanceRationale")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RelevantPointsJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EpisodeId");
-
-                    b.HasIndex("MediaAssetId")
-                        .IsUnique();
-
-                    b.HasIndex("OwnerId", "EpisodeId");
-
-                    b.ToTable("EpisodeSupportingSources", (string)null);
                 });
 
             modelBuilder.Entity("VibeCast.Domain.Jobs.ProcessingJob", b =>
@@ -648,35 +585,6 @@ namespace VibeCast.Infrastructure.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("VibeCast.Domain.Episodes.EpisodeSupportingSource", b =>
-                {
-                    b.HasOne("VibeCast.Domain.Episodes.Episode", "Episode")
-                        .WithMany("SupportingSources")
-                        .HasForeignKey("EpisodeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("VibeCast.Domain.Media.MediaAsset", "MediaAsset")
-                        .WithMany("SupportingSources")
-                        .HasForeignKey("MediaAssetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Episode");
-
-                    b.Navigation("MediaAsset");
-                });
-
-            modelBuilder.Entity("VibeCast.Domain.Episodes.Episode", b =>
-                {
-                    b.Navigation("SupportingSources");
-                });
-
-            modelBuilder.Entity("VibeCast.Domain.Media.MediaAsset", b =>
-                {
-                    b.Navigation("SupportingSources");
                 });
 #pragma warning restore 612, 618
         }

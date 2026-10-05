@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.AI;
 using VibeCast.Application.Episodes;
 using VibeCast.Application.Validation;
@@ -8,7 +9,10 @@ namespace VibeCast.Infrastructure.AI;
 public abstract class CommonEpisodePlanningMethods
 {
     protected static readonly JsonSerializerOptions JsonOptions =
-    new(JsonSerializerDefaults.Web);
+    new(JsonSerializerDefaults.Web)
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+    };
 
     protected string CreateEditorialBriefJson(GenerateEpisodePlanRequest request)
     {
