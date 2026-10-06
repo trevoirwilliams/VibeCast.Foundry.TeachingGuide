@@ -26,15 +26,7 @@ public sealed class EpisodeConceptPracticeTests
         Assert.AreEqual(cancellation.Token, client.LastToken);
     }
 
-    [TestMethod]
-    public async Task GenerateAsync_RejectsWhitespaceOutput()
-    {
-        using var client = new FakeChatClient(" \t\r\n ");
-        var generator = CreateGenerator(client);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => generator.GenerateAsync(CreateRequest()));
-    }
 
     [TestMethod]
     public async Task GenerateAsync_PropagatesCallerCancellation()

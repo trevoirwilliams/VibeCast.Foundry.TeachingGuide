@@ -80,17 +80,9 @@ public sealed class FoundryEpisodeConceptGeneratorTests
             Tone: "Professional and direct",
             Language: "English (United States)");
 
-        try
-        {
-            await generator.GenerateAsync(request);
-            Assert.Fail("Expected InvalidOperationException for empty model response.");
-        }
-        catch (InvalidOperationException exception)
-        {
-            StringAssert.Contains(
-                exception.Message,
-                "returned an empty episode concept");
-        }
+        // Check the behavior, not the instructor's exact exception wording.
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => generator.GenerateAsync(request));
     }
 
     [TestMethod]

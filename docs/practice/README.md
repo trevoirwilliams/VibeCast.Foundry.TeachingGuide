@@ -70,10 +70,10 @@ Use an async iterator, await foreach, chatClient.GetStreamingResponseAsync and u
 
 ## Focused checks without a live model
 
-The supplied `EpisodeConceptPracticeTests` uses an in-memory fake client. No credentials or model calls are needed for these tests. The named tests fail until you implement S04-02/S04-03; their failure messages and assertions show the expected behavior.
+The supplied `EpisodeConceptPracticeTests` and existing `FoundryEpisodeConceptGeneratorTests` use in-memory fake clients. No credentials or model calls are needed for these tests. The named tests fail until you implement S04-02/S04-03; their failure messages and assertions show the expected behavior.
 
 ```bash
-dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release --filter "FullyQualifiedName~EpisodeConceptPracticeTests"
+dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release --filter "FullyQualifiedName~Concept"
 ```
 
 To work on only one exercise, append `&FullyQualifiedName~GenerateAsync` or `&FullyQualifiedName~StreamAsync` inside the filter quotes.
