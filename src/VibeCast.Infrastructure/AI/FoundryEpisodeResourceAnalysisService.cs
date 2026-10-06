@@ -36,7 +36,7 @@ public class FoundryEpisodeResourceAnalysisService(
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
 
-    public Task<EpisodeResourceAnalysisResult> AnalyzeAsync(Guid episodeId, Guid mediaAssetId, string ownerId, CancellationToken cancellationToken = default)
+    public async Task<EpisodeResourceAnalysisResult> AnalyzeAsync(Guid episodeId, Guid mediaAssetId, string ownerId, CancellationToken cancellationToken = default)
     {
         if (episodeId == Guid.Empty)
         {
@@ -154,58 +154,123 @@ public class FoundryEpisodeResourceAnalysisService(
         string ownerId,
         CancellationToken cancellationToken)
     {
-        // PRACTICE S06-04: Use the prepared relevance prompt and extracted document context to request a typed assessment. Reject unusable completions and preserve cancellation.
-        // Completion criteria and optional hints: docs/practice/README.md.
-        throw new NotImplementedException("S06-04: implement AssessRelevanceAsync.");
+        await using VibeCastDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        EpisodeSupportingSource? existing = await dbContext.EpisodeSupportingSources
+                .SingleOrDefaultAsync(candidate =>
+                        candidate.MediaAssetId == source.Id &&
+                        candidate.OwnerId == ownerId,
+                    cancellationToken);
+
+        if (!assessment.IsRelevant)
+        {
+            if (existing is not null)
+            {
+                dbContext.EpisodeSupportingSources.Remove(existing);
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            logger.LogInformation(
+                "Media asset {MediaAssetId} was assessed " +
+                "as not relevant to episode {EpisodeId}.",
+                source.Id,
+                episode.Id);
+
+            return new EpisodeResourceAnalysisResult(
+                IsRelevant: false,
+                Message: $"{source.OriginalFileName} does not " +
+                    "appear semantically useful to the " +
+                    "accepted episode plan and was not added.",
+                SupportingSource: null);
+        }
+
+        DateTimeOffset analyzedAtUtc = DateTimeOffset.UtcNow;
+
+        string relevantPointsJson = JsonSerializer.Serialize(
+                assessment.RelevantPoints,
+                JsonOptions);
+
+        string matchedEvidenceJson = JsonSerializer.Serialize(
+                assessment.MatchedEvidenceRequirements,
+                JsonOptions);
+
+        if (existing is null)
+        {
+            existing = EpisodeSupportingSource.Create(
+                    episodeId: episode.Id,
+                    mediaAssetId: source.Id,
+                    ownerId: ownerId,
+                    summary: assessment.Summary,
+                    relevanceRationale: assessment.Rationale,
+                    relevantPointsJson: relevantPointsJson,
+                    matchedEvidenceRequirementsJson: matchedEvidenceJson,
+                    analyzerId: AnalyzerId,
+                    relevancePromptVersion:EpisodeResourceRelevancePrompt.Version,
+                    analyzedAtUtc: analyzedAtUtc);
+
+            dbContext.EpisodeSupportingSources
+                .Add(existing);
+        }
+        else
+        {
+            existing.RefreshAnalysis(
+                summary: assessment.Summary,
+                relevanceRationale: assessment.Rationale,
+                relevantPointsJson: relevantPointsJson,
+                matchedEvidenceRequirementsJson: matchedEvidenceJson,
+                analyzerId: AnalyzerId,
+                relevancePromptVersion: EpisodeResourceRelevancePrompt.Version,
+                analyzedAtUtc: analyzedAtUtc);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        EpisodeSupportingSourceSummary sourceSummary =
+            new(
+                Id: existing.Id,
+                MediaAssetId: source.Id,
+                SourceFileName: source.OriginalFileName,
+                ContentType: source.ContentType,
+                Summary: assessment.Summary,
+                Rationale: assessment.Rationale,
+                RelevantPoints: assessment.RelevantPoints,
+                MatchedEvidenceRequirements: assessment.MatchedEvidenceRequirements,
+                AnalyzerId: AnalyzerId,
+                RelevancePromptVersion: EpisodeResourceRelevancePrompt.Version,
+                AnalyzedAtUtc: analyzedAtUtc);
+
+        logger.LogInformation(
+            "Media asset {MediaAssetId} was added as a " +
+            "supporting source for episode {EpisodeId}. " +
+            "AnalyzerId: {AnalyzerId}; PromptVersion: " +
+            "{PromptVersion}.",
+            source.Id,
+            episode.Id,
+            AnalyzerId,
+            EpisodeResourceRelevancePrompt.Version);
+
+        return new EpisodeResourceAnalysisResult(
+            IsRelevant: true,
+            Message:$"{source.OriginalFileName} was relevant " +
+                "and has been added to Supporting Sources.",
+            SupportingSource: sourceSummary);
     }
 
-    private async Task<SupportingSourceAssessment>
+    private Task<SupportingSourceAssessment>
         AssessRelevanceAsync(
             EpisodeDetails episode,
             MediaAssetSummary source,
             string analyzedContent,
             CancellationToken cancellationToken)
     {
-        ChatMessage[] messages =
-        [
-            new(
-                ChatRole.System,
-                EpisodeResourceRelevancePrompt.SystemMessage
-               ),
-
-            new(
-                ChatRole.User,
-                EpisodeResourceRelevancePrompt.BuildUserMessage(
-                        episode,
-                        source,
-                        analyzedContent)
-                )
-        ];
-
-        ChatOptions options = new()
-        {
-            MaxOutputTokens = 10_500
-        };
-
-        ChatResponse<SupportingSourceAssessment> response = await chatClient
-                .GetResponseAsync<SupportingSourceAssessment>(
-                    messages,
-                    JsonOptions,
-                    options,
-                    useJsonSchemaResponseFormat: true,
-                    cancellationToken: cancellationToken);
-
-        ChatResponseCompletionGuard.EnsureUsableCompletion(response.FinishReason,
-                "supporting resource relevance assessment");
-
-        if (!response.TryGetResult(out SupportingSourceAssessment?assessment) ||assessment is null)
-        {
-            throw new InvalidOperationException(
-                "Microsoft Foundry did not return a " +
-                "usable supporting-resource assessment.");
-        }
-
-        return assessment;
+        // PRACTICE S06-04: AssessRelevanceAsync
+        // 1. Build system and user messages using the supplied relevance prompt helpers.
+        // 2. Include the episode, source and extracted document context.
+        // 3. Request a typed assessment with bounded output and cancellation.
+        // 4. Check completion and typed-result availability; return the assessment.
+        // Optional API hints and checks: docs/practice/README.md#s06-04-assessrelevanceasync
+        throw new NotImplementedException("S06-04: implement AssessRelevanceAsync.");
     }
 
     private static string BuildSemanticContext(AnalysisResult analysis)

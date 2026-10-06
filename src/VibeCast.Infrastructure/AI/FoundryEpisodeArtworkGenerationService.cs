@@ -63,11 +63,14 @@ public class FoundryEpisodeArtworkGenerationService(
                 cancellationToken);
         timeout.CancelAfter(GenerationTimeout);
 
-        // PRACTICE S06-02: Generate one PNG using the injected image generator and the prepared episode prompt. Use the bounded token and the image settings from this section.
+        // PRACTICE S06-02: RequestGeneratedImageAsync
+        // 1. Use the prepared episode prompt and injected image generator.
+        // 2. Request one PNG with the section image dimensions.
+        // 3. Pass the already-bounded token and return the generation response.
+        // 4. Keep the surrounding validation, storage and cleanup code intact.
         Task<ImageGenerationResponse> RequestGeneratedImageAsync()
         {
-            // Use the method's existing inputs and injected client.
-            // Completion criteria: docs/practice/README.md.
+            // Optional API hints and checks: docs/practice/README.md#s06-02-requestgeneratedimageasync
             throw new NotImplementedException("S06-02: implement RequestGeneratedImageAsync.");
         }
 

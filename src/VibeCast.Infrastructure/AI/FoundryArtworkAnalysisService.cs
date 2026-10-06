@@ -31,11 +31,14 @@ public class FoundryArtworkAnalysisService(
 
         ValidateRequest(request, content);
 
-        // PRACTICE S06-01: Build a multimodal request from the image stream and episode context, then request typed ArtworkAnalysis through the injected chat client. Preserve cancellation and output limits.
+        // PRACTICE S06-01: RequestArtworkAnalysisAsync
+        // 1. Load the supplied image stream with its content type.
+        // 2. Build a system message and a user message containing episode context and image data.
+        // 3. Request typed ArtworkAnalysis with the section output limit and caller token.
+        // 4. Return the SDK response; the surrounding method validates and maps it.
         Task<ChatResponse<ArtworkAnalysis>> RequestArtworkAnalysisAsync()
         {
-            // Use the method's existing inputs and injected client.
-            // Completion criteria: docs/practice/README.md.
+            // Optional API hints and checks: docs/practice/README.md#s06-01-requestartworkanalysisasync
             throw new NotImplementedException("S06-01: implement RequestArtworkAnalysisAsync.");
         }
 

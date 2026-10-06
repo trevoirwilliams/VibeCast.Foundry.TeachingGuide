@@ -72,11 +72,14 @@ public class FoundryEpisodeTranscriptionService(
         await using Stream audio = await blobStorage.OpenReadAsync(
                 asset.StorageKey,
                 cancellationToken);
-        // PRACTICE S06-03: Build transcription options from the opened audio stream and resolved locale. Invoke the injected transcription client with cancellation.
+        // PRACTICE S06-03: RequestTranscriptionAsync
+        // 1. Build transcription options from the already-open audio stream.
+        // 2. Add the locale that the surrounding code resolved.
+        // 3. Invoke the transcription client with the caller token.
+        // 4. Return its response; the caller extracts text and saves the transcript.
         Task<ClientResult<TranscriptionResult>> RequestTranscriptionAsync()
         {
-            // Use the method's existing inputs and injected client.
-            // Completion criteria: docs/practice/README.md.
+            // Optional API hints and checks: docs/practice/README.md#s06-03-requesttranscriptionasync
             throw new NotImplementedException("S06-03: implement RequestTranscriptionAsync.");
         }
 

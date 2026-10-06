@@ -1,84 +1,143 @@
 # Backend practice: Build Multimodal AI Features with Microsoft Foundry
 
-> Instructor review draft. C# syntax checked; full solution build, behavior tests, cloud smoke tests and transcript timing are not verified in this environment. Run the release gates below before assigning this branch to students.
+## Start here
 
-## Choose your route
+Use the root [README](../../README.md) for this branch's setup and pinned package versions. Supporting UI and application code are supplied so you can focus on the backend tasks below. This enriched scaffold may contain supporting files that appear later in the recording.
 
-- Practice route: attempt these tasks before watching the matching implementation video. Use the video as a worked solution afterward.
-- Guided route: watch the explanation first, pause before implementation, then attempt the task. Do not simply copy the finished code.
-- Already watched? Rebuild each missing behavior without opening the reference, then explain one failure case.
+Watch the feature explanation, pause before the implementation, and try the matching task. If you have already watched it, attempt the task before opening the solution. Read the numbered comments first; expand an optional hint only when you need it. You may ask Copilot to explain one unfamiliar API or failed check.
 
-This branch is based on `section-06-episode-media-start` at `7dd380550af0d1bb21027a8b8c63f530efe7e7d5`. Supporting files, UI, contracts, registration and migrations come from `section-06-episode-media-complete` at `bbfc6caec2296d66624a8556d6e3092ad598bbee`, with the core exercise implementations removed. It is an enriched section-start snapshot, so some supporting code appears earlier than in the video. Original start/complete branches are unchanged. Start each section independently; unfinished exercises do not carry forward.
+Search for `PRACTICE S` in C# files. Each named `NotImplementedException` is an intentional gap. Replace it with real behavior, not dummy output. Task-returning stubs omit `async`; add it when using `await`. Streaming tasks need an async iterator, `yield return` and the cancellation attribute described in their hints.
 
-Use the setup in `docs/local-development.md` and this checkpoint's pinned package files. Do not upgrade packages while solving an exercise. Cloud credentials and model deployments are still needed for live features; deterministic tests should not use them. Preserve all ownership and validation checks supplied in surrounding code.
+Save or commit your work before switching branches. Each section starts independently; your unfinished code does not carry forward automatically.
 
-## Your tasks
+<a id="s06-01-requestartworkanalysisasync"></a>
+### S06-01: RequestArtworkAnalysisAsync
 
-Find `PRACTICE S` in C# files. Each intentional `NotImplementedException` identifies an unfinished behavior. These failures are expected until that task is implemented; do not replace them with dummy output, skip tests or suppress assertions. When implementing an asynchronous stub, restore `async` when needed; streaming implementations also need iterator syntax and appropriate cancellation handling.
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryArtworkAnalysisService.cs](../../src/VibeCast.Infrastructure/AI/FoundryArtworkAnalysisService.cs)
+- **Attempt before:** **Implement Foundry Image Understanding Model Call**.
+- **Already provided / prerequisites:** Input validation, result extraction, normalization and application validation are supplied. Implement only the local request function.
 
-### S06-01: AnalyzeAsync
+1. Load the supplied image stream with its content type.
+2. Build a system message and a user message containing episode context and image data.
+3. Request typed ArtworkAnalysis with the section output limit and caller token.
+4. Return the SDK response; the surrounding method validates and maps it.
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryArtworkAnalysisService.cs](../../src/VibeCast.Infrastructure/AI/FoundryArtworkAnalysisService.cs)
-- Attempt before: **Implement Foundry Image Understanding Model Call** (lecture 64).
-- Target practice time: 25 minutes, an initial estimate to calibrate with learners.
-- Task: Validate the supplied artwork, combine image data with episode context, request typed analysis and validate it before returning accessibility metadata.
-- Done when: Unsupported images fail before invocation; a valid analysis has usable alt text and prompt metadata.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+<details>
+<summary>Optional API hint</summary>
 
-### S06-02: GenerateAsync
+Use DataContent.LoadFromAsync(content, request.ContentType, cancellationToken). Combine TextContent and image DataContent in the user message; use ArtworkAnalysisPrompt.Instructions for the system role. Include EpisodeTitle, OriginalFileName and prompt version as context, not evidence of visible text. Call GetResponseAsync<ArtworkAnalysis> with JsonOptions, schema format and MaxOutputTokens = 1_000. Return ChatResponse<ArtworkAnalysis>, not ArtworkAnalysisResult.
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeArtworkGenerationService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeArtworkGenerationService.cs)
-- Attempt before: **Generate and Validate Promotional Artwork** (lecture 70).
-- Target practice time: 35 minutes, an initial estimate to calibrate with learners.
-- Task: Generate artwork for an episode owned by the caller. Bound the call, validate the returned PNG, persist metadata and clean up a stored blob if persistence fails.
-- Done when: Wrong owner, invalid content type or PNG signature cannot persist an asset; failed persistence cleans up.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+</details>
 
-### S06-03: TranscribeAsync
+**Check your result:**
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeTranscriptionService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeTranscriptionService.cs)
-- Attempt before: **Transcribe and Attach an Episode Recording** (lecture 73).
-- Target practice time: 25 minutes, an initial estimate to calibrate with learners.
-- Task: Load an owned audio asset, choose the episode locale and transcribe it. Reject empty text and save the transcript with its metadata.
-- Done when: Wrong-owner and nonaudio assets fail; nonempty text and locale persist; streams are disposed.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- A supported image and usable analysis → the supplied code returns accessibility metadata.
+- Unsupported input fails before the request; empty alt text is rejected by the supplied validator.
 
+**Explain:** Why must the prompt distinguish episode context from text actually visible in the image?
+
+<a id="s06-02-requestgeneratedimageasync"></a>
+### S06-02: RequestGeneratedImageAsync
+
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryEpisodeArtworkGenerationService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeArtworkGenerationService.cs)
+- **Attempt before:** **Generate and Validate Promotional Artwork**.
+- **Already provided / prerequisites:** Ownership checks, prompt construction, timeout, PNG checks, persistence and cleanup are supplied. Implement only the local request function.
+
+1. Use the prepared episode prompt and injected image generator.
+2. Request one PNG with the section image dimensions.
+3. Pass the already-bounded token and return the generation response.
+4. Keep the surrounding validation, storage and cleanup code intact.
+
+<details>
+<summary>Optional API hint</summary>
+
+Use imageGenerator.GenerateImagesAsync with ImageGenerationOptions: Count = 1, ImageSize = new Size(1536, 1024), MediaType = ContentType. Pass timeout.Token, not only the original caller token. Return ImageGenerationResponse; the caller reads its Contents.
+
+</details>
+
+**Check your result:**
+
+- One valid PNG response → the supplied code validates and saves it.
+- Wrong content type or invalid PNG bytes → rejection before an asset is accepted.
+- The model call receives timeout.Token.
+
+**Explain:** Why should generated bytes still pass file validation?
+
+<a id="s06-03-requesttranscriptionasync"></a>
+### S06-03: RequestTranscriptionAsync
+
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryEpisodeTranscriptionService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeTranscriptionService.cs)
+- **Attempt before:** **Transcribe and Attach an Episode Recording**.
+- **Already provided / prerequisites:** Ownership checks, audio loading, locale resolution, text extraction and persistence are supplied. Implement only the local request function.
+
+1. Build transcription options from the already-open audio stream.
+2. Add the locale that the surrounding code resolved.
+3. Invoke the transcription client with the caller token.
+4. Return its response; the caller extracts text and saves the transcript.
+
+<details>
+<summary>Optional API hint</summary>
+
+Construct TranscriptionOptions(audio), add locale to options.Locales and call transcriptionClient.TranscribeAsync(options, cancellationToken). Return ClientResult<TranscriptionResult>, not a string. The supplied code reads response.Value.CombinedPhrases and phrase.Text.
+
+</details>
+
+**Check your result:**
+
+- Nonempty phrases → transcript text and resolved locale are persisted.
+- An empty transcription → the supplied code rejects it.
+- Wrong-owner or nonaudio assets are rejected by the supplied checks.
+
+**Explain:** Why reuse the resolved locale rather than hard-code English?
+
+<a id="s06-04-assessrelevanceasync"></a>
 ### S06-04: AssessRelevanceAsync
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeResourceAnalysisService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeResourceAnalysisService.cs)
-- Attempt before: **Add Content Understanding Configurations and Services** (lecture 79).
-- Target practice time: 20 minutes, an initial estimate to calibrate with learners.
-- Task: Use the prepared relevance prompt and extracted document context to request a typed assessment. Reject unusable completions and preserve cancellation.
-- Done when: A usable assessment reaches the supplied validator; invalid or unrelated evidence cannot become accepted support.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryEpisodeResourceAnalysisService.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeResourceAnalysisService.cs)
+- **Attempt before:** **Add Content Understanding Configurations and Services**.
+- **Already provided / prerequisites:** Document extraction, ownership checks, domain validation and PersistDecisionAsync are supplied.
 
-## Optional hint
+1. Build system and user messages using the supplied relevance prompt helpers.
+2. Include the episode, source and extracted document context.
+3. Request a typed assessment with bounded output and cancellation.
+4. Check completion and typed-result availability; return the assessment.
 
-For the first three challenges, the rest of each method is supplied. Implement the local request function using values already in scope. Keep supplied guards and persistence code. The resource-assessment challenge uses the existing prompt builder and completion guard.
+<details>
+<summary>Optional API hint</summary>
 
-## Validate and compare
+Use EpisodeResourceRelevancePrompt.SystemMessage and BuildUserMessage(episode, source, analyzedContent). Request GetResponseAsync<SupportingSourceAssessment> with JsonOptions, schema format and MaxOutputTokens = 10_500. Apply ChatResponseCompletionGuard before TryGetResult; reject an unusable result with InvalidOperationException. Return SupportingSourceAssessment; persistence is the caller's responsibility.
 
-1. Run `dotnet restore VibeCast.sln` and `dotnet build VibeCast.sln --configuration Release --no-restore`. Exercise failures should be behavioral; missing dependencies or compile errors are setup/implementation problems.
-2. Run `dotnet test VibeCast.sln --configuration Release --no-build`. Existing tests remain supplied. Tests exercising gaps may fail with the named exercise exception. This pack does not claim that every criterion already has an automated test.
-3. Add or run a focused test for the task's success and rejection paths. Use local fakes for model behavior. Use Azurite for storage integration. Run cloud smoke checks only after deterministic checks; avoid repeated paid calls as a debugging loop.
-4. Compare your implementation with the same file at the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/bbfc6caec2296d66624a8556d6e3092ad598bbee). Compare behavior and explain differences; matching every line is unnecessary.
-5. Change one input or failure mode and predict the outcome before running it. Record whether the prediction was correct.
+</details>
 
-After finishing, use `git diff` to review your own changes. Commit your work before changing branches. To see one reference file without replacing your work, use `git show section-06-episode-media-complete:path/to/file.cs` with a file path from the task list.
+**Check your result:**
 
-## Using Copilot
+- Usable assessment → passed to the existing evidence-requirement validator.
+- Unusable completion or missing typed result → rejected before persistence.
+- An unknown evidence requirement remains rejected by the supplied validator.
 
-Try the task first. Ask for an explanation or a hint about one failed case. In the testing lesson, ask Copilot to propose behavior cases, inspect its assertions, then deliberately break the relevant behavior in a disposable local copy and confirm the test detects it. Do not ask an agent to fill every practice gap in one pass. No new agent instructions or skills are installed by this pack.
+**Explain:** Why does the model's relevance decision need application validation?
 
-## Instructor release gates
+## Scope and dependencies
 
-- Build the untouched scaffold and classify expected exercise failures separately from regressions.
-- Restore the reference implementation for each gap and run the full test suite; all tests must pass.
-- Ensure every core acceptance criterion has a deterministic test or an explicit integration checklist before release.
-- Check the actual video sequence and add pause cues; lecture mapping is based on live titles and repository code, not a verified transcript review.
-- Verify a fresh learner can set up the branch and reach the first gap; document credentials, quotas and costs separately.
-- Pilot with a learner who has not seen the solution, then adjust task size and hints.
+For S06-01 to S06-03, implement only the local request function. The caller already extracts the response and applies validation/persistence; do not repeat those operations inside the gap. S06-04 returns a typed assessment to its supplied caller.
 
-## Checkpoint compatibility
+This checkpoint uses the experimental IImageGenerator API and existing MEAI001 suppression. Keep the recorded package versions while completing the exercise.
 
-The existing artwork implementation uses IImageGenerator and suppresses MEAI001. Treat that as an explicitly experimental dependency inherited from the recorded checkpoint; this pack does not relabel it as a stable API or replace it with IChatClient. Keep the pinned dependency set for video parity.
+## Build, compare and review
+
+```bash
+dotnet restore VibeCast.sln
+dotnet build VibeCast.sln --configuration Release --no-restore
+dotnet test VibeCast.sln --configuration Release --no-build
+```
+
+An intentional exercise exception is expected when an unfinished path runs; a compiler error is not the exercise. Some tests cover other gaps, so use a focused filter where supplied. The examples above are acceptance checks, not a claim that every case has an automated test. Use local fakes for deterministic model responses; use the configured storage emulator for storage integration.
+
+After your attempt, compare the relevant method with the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/bbfc6caec2296d66624a8556d6e3092ad598bbee). Explain behavioral differences instead of matching every line. Change one input, predict the result, then check your prediction.
+
+<details>
+<summary>Instructor validation status</summary>
+
+This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+
+</details>
