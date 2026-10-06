@@ -97,6 +97,17 @@ Use the configured Azurite instance: save a short known byte sequence, check Sto
 
 This checkpoint covers PostgreSQL, Azurite and local containers. It does not represent a completed hosted Azure deployment.
 
+## Run checks in the appropriate environment
+
+The domain and application test projects can run independently:
+
+```bash
+dotnet test tests/VibeCast.Domain.Tests/VibeCast.Domain.Tests.csproj --configuration Release
+dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release
+```
+
+The full-solution command also runs HealthEndpointTests, which starts the web host. That host needs its PostgreSQL and keyed blob-container connection strings, other required option values, and reachable local services. Use the AppHost setup in the root README to supply those dependencies. A missing PostgreSQL connection string is a host-configuration failure, not evidence that your storage implementation is wrong. Do not remove the integration test or bypass startup validation to make it pass.
+
 ## Build, compare and review
 
 ```bash
@@ -112,6 +123,8 @@ After your attempt, compare the relevant method with the [pinned reference solut
 <details>
 <summary>Instructor validation status</summary>
 
-This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+Checked on 2026-10-06: The scaffold Release build, migration check and 16 domain/application tests passed in GitHub Actions. The health integration test requires PostgreSQL and storage configuration and did not pass in the unconfigured CI host. This is separate from S09-01 to S09-03.
+
+[Scaffold CI run](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/actions/runs/37504000424). A restored-solution test run and live cloud checks have not been performed for this revision. Those are still needed before claiming that every completed exercise is verified. Lesson references use titles; exact transcript pause times remain unverified.
 
 </details>
