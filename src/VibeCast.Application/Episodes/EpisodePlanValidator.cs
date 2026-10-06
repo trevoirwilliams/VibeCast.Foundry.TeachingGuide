@@ -18,8 +18,12 @@ public sealed class EpisodePlanValidator : IValidator<EpisodePlan>
 
     public ValidationResult Validate(EpisodePlan instance)
     {
-        // PRACTICE S05-02: Validate the plan using the existing constants and helper methods. Check segment ordering, positive durations and agreement with the target duration.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S05-02: Validate
+        // 1. Guard the plan and create a validation result to collect failures.
+        // 2. Use the supplied helpers for required text and collection rules.
+        // 3. Check segment count, sequence and positive durations; total the durations.
+        // 4. Compare that total with the target and return all recorded failures.
+        // Optional API hints and checks: docs/practice/README.md#s05-02-validate
         throw new NotImplementedException("S05-02: implement Validate.");
     }
 

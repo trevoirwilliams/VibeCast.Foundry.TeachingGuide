@@ -18,7 +18,7 @@ public class FoundryEpisodePlanningWithToolService(
     ILogger<FoundryEpisodePlanningWithToolService> logger)
     : CommonEpisodePlanningMethods, IEpisodePlanningService
 {
-    public Task<EpisodePlanningResult> GenerateAsync(GenerateEpisodePlanRequest request, CancellationToken cancellationToken = default)
+    public async Task<EpisodePlanningResult> GenerateAsync(GenerateEpisodePlanRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -141,110 +141,36 @@ public class FoundryEpisodePlanningWithToolService(
 
     private ValidationResult ValidateCandidate(EpisodePlan plan, EpisodeFormatGuidance guidance)
     {
-        // PRACTICE S05-04: Expose the editorial-policy function to the model using the supplied policy provider and trusted context. Require evidence of invocation and return a usable typed plan.
-        // Completion criteria and optional hints: docs/practice/README.md.
-        throw new NotImplementedException("S05-04: implement RequestTypedPlanAsync.");
+        ValidationResult result =
+            planValidator.Validate(plan);
+
+        ValidationResult guidanceResult =
+            formatGuidanceValidator.Validate(
+                new EpisodeFormatGuidanceValidationRequest(
+                    plan,
+                    guidance));
+
+        foreach (ValidationFailure failure
+                 in guidanceResult.Errors)
+        {
+            result.Add(
+                failure.PropertyName,
+                failure.ErrorMessage);
+        }
+
+        return result;
     }
 
-    private async Task<EpisodePlan> RequestTypedPlanAsync(ChatMessage[] initialMessages, string operationName, Guid episodeId, EpisodeFormatGuidanceContext guidanceContext, EpisodeFormatGuidanceState guidanceState, CancellationToken cancellationToken)
+    private Task<EpisodePlan> RequestTypedPlanAsync(ChatMessage[] initialMessages, string operationName, Guid episodeId, EpisodeFormatGuidanceContext guidanceContext, EpisodeFormatGuidanceState guidanceState, CancellationToken cancellationToken)
     {
-        int invocationCountBeforeRequest =
-            guidanceState.InvocationCount;
-
-        async Task<EpisodeFormatGuidance> GetEpisodeFormatGuidanceAsync(
-                CancellationToken toolCancellationToken)
-        {
-            guidanceState.InvocationCount++;
-
-            if (guidanceState.Guidance is not null)
-            {
-                return guidanceState.Guidance;
-            }
-
-            EpisodeFormatGuidance guidance =
-                await formatPolicyProvider.GetCurrentAsync(
-                    guidanceContext,
-                    toolCancellationToken);
-
-            guidanceState.Guidance = guidance;
-
-            logger.LogInformation(
-                "Resolved episode format policy " +
-                "{FormatPolicyVersion} for episode {EpisodeId}. " +
-                "TargetDurationMinutes: {TargetDurationMinutes}.",
-                guidance.PolicyVersion,
-                episodeId,
-                guidance.TargetDurationMinutes);
-
-            return guidance;
-        }
-
-        AIFunction formatGuidanceTool =
-            AIFunctionFactory.Create(
-                (Func<
-                    CancellationToken,
-                    Task<EpisodeFormatGuidance>>)
-                GetEpisodeFormatGuidanceAsync,
-                name: EpisodeFormatGuidanceTool.Name,
-                description:
-                    EpisodeFormatGuidanceTool.Description,
-                serializerOptions: JsonOptions);
-
-        ChatOptions options = new()
-        {
-            MaxOutputTokens = 3_500,
-            ToolMode = ChatToolMode.Auto,
-            Tools =
-            [
-                formatGuidanceTool
-            ]
-        };
-
-        ChatResponse<EpisodePlan> response =
-            await chatClient.GetResponseAsync<EpisodePlan>(
-                initialMessages,
-                JsonOptions,
-                options,
-                useJsonSchemaResponseFormat: true,
-                cancellationToken: cancellationToken);
-
-        ChatResponseCompletionGuard.EnsureUsableCompletion(
-            response.FinishReason,
-            operationName);
-
-        if (guidanceState.InvocationCount ==
-            invocationCountBeforeRequest)
-        {
-            logger.LogWarning(
-                "The planner completed {OperationName} for episode " +
-                "{EpisodeId} without requesting the required " +
-                "episode-format guidance tool.",
-                operationName,
-                episodeId);
-
-            throw new InvalidOperationException(
-                $"The planner completed {operationName} without " +
-                "retrieving current episode-format guidance.");
-        }
-
-        if (!response.TryGetResult(out EpisodePlan? plan) ||
-            plan is null)
-        {
-            logger.LogWarning(
-                "Microsoft Foundry returned an unusable structured " +
-                "episode plan during {OperationName}. " +
-                "ResponseId: {ResponseId}; FinishReason: " +
-                "{FinishReason}.",
-                operationName,
-                response.ResponseId,
-                response.FinishReason);
-
-            throw new InvalidOperationException(
-                $"Microsoft Foundry did not return a usable typed " +
-                $"episode plan during {operationName}.");
-        }
-
-        return plan;
+        // PRACTICE S05-04: RequestTypedPlanAsync
+        // 1. Capture the tool invocation count before requesting a plan.
+        // 2. Expose a policy function that uses trusted context and the supplied provider.
+        // 3. Record invocation and reuse policy guidance already stored in guidanceState.
+        // 4. Attach the function to the typed request and pass cancellation.
+        // 5. Reject unusable completion, missing tool invocation or missing typed plan.
+        // Optional API hints and checks: docs/practice/README.md#s05-04-requesttypedplanasync
+        throw new NotImplementedException("S05-04: implement RequestTypedPlanAsync.");
     }
 
     private static EpisodeFormatGuidance GetSelectedGuidance(
