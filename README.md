@@ -75,7 +75,7 @@ The local teaching account is defined in [SeedData.cs](src/VibeCast.Infrastructu
 dotnet test VibeCast.sln --configuration Release --no-build
 ```
 
-Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. The practice scaffold has had syntax checks, not a full build or behavioral certification.
+Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. See the task guide's validation status. A full build and restored-solution test run have not been certified.
 
 Roundtrip bytes through Azurite, verify owner-scoped storage keys, restart the local containers and confirm PostgreSQL-backed state and Data Protection storage behave as expected.
 

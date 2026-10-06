@@ -1,71 +1,117 @@
 # Backend practice: Deploy the AI-Enabled .NET Application to Azure
 
-> Instructor review draft. C# syntax checked; full solution build, behavior tests, cloud smoke tests and transcript timing are not verified in this environment. Run the release gates below before assigning this branch to students.
+## Start here
 
-## Choose your route
+Use the root [README](../../README.md) for this branch's setup and pinned package versions. Supporting UI and application code are supplied so you can focus on the backend tasks below. This enriched scaffold may contain supporting files that appear later in the recording.
 
-- Practice route: attempt these tasks before watching the matching implementation video. Use the video as a worked solution afterward.
-- Guided route: watch the explanation first, pause before implementation, then attempt the task. Do not simply copy the finished code.
-- Already watched? Rebuild each missing behavior without opening the reference, then explain one failure case.
+Watch the feature explanation, pause before the implementation, and try the matching task. If you have already watched it, attempt the task before opening the solution. Read the numbered comments first; expand an optional hint only when you need it. You may ask Copilot to explain one unfamiliar API or failed check.
 
-This branch is based on `section-09-prod-prep-start` at `30c56863165a043b0e42c06ef78f321ba38ddd0c`. Supporting files, UI, contracts, registration and migrations come from `section-09-prod-prep-complete` at `96a17cfb477d9ecee0860b6461e44144a222bb6a`, with the core exercise implementations removed. It is an enriched section-start snapshot, so some supporting code appears earlier than in the video. Original start/complete branches are unchanged. Start each section independently; unfinished exercises do not carry forward.
+Search for `PRACTICE S` in C# files. Each named `NotImplementedException` is an intentional gap. Replace it with real behavior, not dummy output. Task-returning stubs omit `async`; add it when using `await`. Streaming tasks need an async iterator, `yield return` and the cancellation attribute described in their hints.
 
-Use the setup in `docs/local-development.md` and this checkpoint's pinned package files. Do not upgrade packages while solving an exercise. Cloud credentials and model deployments are still needed for live features; deterministic tests should not use them. Preserve all ownership and validation checks supplied in surrounding code.
+Save or commit your work before switching branches. Each section starts independently; your unfinished code does not carry forward automatically.
 
-## Your tasks
-
-Find `PRACTICE S` in C# files. Each intentional `NotImplementedException` identifies an unfinished behavior. These failures are expected until that task is implemented; do not replace them with dummy output, skip tests or suppress assertions. When implementing an asynchronous stub, restore `async` when needed; streaming implementations also need iterator syntax and appropriate cancellation handling.
-
+<a id="s09-01-saveasync"></a>
 ### S09-01: SaveAsync
 
-- File: [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
-- Attempt before: **Implement Azurite for Development File Storage** (lecture 114).
-- Target practice time: 30 minutes, an initial estimate to calibrate with learners.
-- Task: Store media using an owner-scoped generated key, a safe display filename and content metadata. Return the stored length and translate provider failures safely.
-- Done when: Azurite roundtrip preserves bytes and type; two owners get distinct keys; unsafe filenames never control the blob key.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
+- **Attempt before:** **Implement Azurite for Development File Storage**.
+- **Already provided / prerequisites:** BlobContainerClient, Helpers.BuildOwnerKey and StoredBlob are supplied; PostgreSQL/AppHost changes are outside this gap.
 
+1. Validate inputs and separate the display filename from the storage key.
+2. Build an owner-scoped generated key using the supplied owner helper.
+3. Upload the stream with content type and media metadata.
+4. Read the stored length and map it to StoredBlob.
+5. Translate provider failures to the existing safe application error.
+
+<details>
+<summary>Optional API hint</summary>
+
+Use Path.GetFileName/Path.GetExtension and Helpers.BuildOwnerKey(ownerId). The key shape is owners/{ownerKey}/media/{new-guid}{extension}. GetBlobClient selects the destination. BlobUploadOptions carries BlobHttpHeaders.ContentType and metadata ownerKey/storagePurpose (media). Await UploadAsync, then GetPropertiesAsync; map properties.Value.ContentLength to SizeBytes. Catch RequestFailedException and wrap in SafeApplicationException; do not swallow cancellation.
+
+</details>
+
+**Check your result:**
+
+- Save known bytes in Azurite → StoredBlob reports their length and content type.
+- Different owners produce different key prefixes; the original name does not choose the destination path.
+- Invalid inputs fail before upload.
+
+**Explain:** Why use the stored content length rather than assume every input stream exposes Length?
+
+<a id="s09-02-openreadasync"></a>
 ### S09-02: OpenReadAsync
 
-- File: [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
-- Attempt before: **Complete Azurite Implementation and Test** (lecture 115).
-- Target practice time: 15 minutes, an initial estimate to calibrate with learners.
-- Task: Open the stored blob as a readable stream, preserve cancellation and translate storage failures into the existing safe application error.
-- Done when: Existing keys return exact bytes; missing blobs fail safely; caller disposes the stream.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
+- **Attempt before:** **Complete Azurite Implementation and Test**.
+- **Already provided / prerequisites:** The container client and SafeApplicationException are supplied.
 
+1. Resolve a blob client from the supplied storage key.
+2. Open a readable stream with cancellation and disallow concurrent modification.
+3. Return the open stream for the caller to consume and dispose.
+4. Translate provider failures without turning cancellation into success.
+
+<details>
+<summary>Optional API hint</summary>
+
+Use containerClient.GetBlobClient, BlobOpenReadOptions(allowModifications: false) and blobClient.OpenReadAsync. Return Stream; do not wrap it in a using that disposes it before returning. Catch RequestFailedException for safe error translation. Later errors while reading a returned stream remain the caller's responsibility.
+
+</details>
+
+**Check your result:**
+
+- Save then open → reading the returned stream yields the original bytes.
+- The stream is usable after this method returns; the caller disposes it.
+- Opening a missing blob fails rather than returning an empty replacement stream.
+
+**Explain:** Who owns the returned stream, and when should it be disposed?
+
+<a id="s09-03-deleteasync"></a>
 ### S09-03: DeleteAsync
 
-- File: [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
-- Attempt before: **Complete Azurite Implementation and Test** (lecture 115).
-- Target practice time: 15 minutes, an initial estimate to calibrate with learners.
-- Task: Delete an existing blob and its snapshots without failing when it is already absent. Preserve cancellation and safe error translation.
-- Done when: Deleting twice succeeds; provider failures are translated; cancellation is honored.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
+- **Attempt before:** **Complete Azurite Implementation and Test**.
+- **Already provided / prerequisites:** The container client and safe application error type are supplied.
 
-## Optional hint
+1. Resolve a blob client from the storage key.
+2. Delete if present, including snapshots, with caller cancellation.
+3. Treat an already-missing blob as a successful no-op.
+4. Translate provider failures to the existing safe application error.
 
-Reuse Helpers.BuildOwnerKey and the existing StoredBlob contract. Azurite provides a local storage integration check. Do not derive storage keys directly from user filenames.
+<details>
+<summary>Optional API hint</summary>
 
-## Validate and compare
+Use DeleteIfExistsAsync with DeleteSnapshotsOption.IncludeSnapshots, null conditions and the caller token. The method returns Task, so no application result object is needed. Catch RequestFailedException; keep cancellation separate.
 
-1. Run `dotnet restore VibeCast.sln` and `dotnet build VibeCast.sln --configuration Release --no-restore`. Exercise failures should be behavioral; missing dependencies or compile errors are setup/implementation problems.
-2. Run `dotnet test VibeCast.sln --configuration Release --no-build`. Existing tests remain supplied. Tests exercising gaps may fail with the named exercise exception. This pack does not claim that every criterion already has an automated test.
-3. Add or run a focused test for the task's success and rejection paths. Use local fakes for model behavior. Use Azurite for storage integration. Run cloud smoke checks only after deterministic checks; avoid repeated paid calls as a debugging loop.
-4. Compare your implementation with the same file at the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/96a17cfb477d9ecee0860b6461e44144a222bb6a). Compare behavior and explain differences; matching every line is unnecessary.
-5. Change one input or failure mode and predict the outcome before running it. Record whether the prediction was correct.
+</details>
 
-After finishing, use `git diff` to review your own changes. Commit your work before changing branches. To see one reference file without replacing your work, use `git show section-09-prod-prep-complete:path/to/file.cs` with a file path from the task list.
+**Check your result:**
 
-## Using Copilot
+- Save, delete, then delete again → both deletes complete.
+- After deletion, the blob cannot be opened as existing content.
 
-Try the task first. Ask for an explanation or a hint about one failed case. In the testing lesson, ask Copilot to propose behavior cases, inspect its assertions, then deliberately break the relevant behavior in a disposable local copy and confirm the test detects it. Do not ask an agent to fill every practice gap in one pass. No new agent instructions or skills are installed by this pack.
+**Explain:** Why is an idempotent delete useful when cleanup is retried?
 
-## Instructor release gates
+## Storage roundtrip
 
-- Build the untouched scaffold and classify expected exercise failures separately from regressions.
-- Restore the reference implementation for each gap and run the full test suite; all tests must pass.
-- Ensure every core acceptance criterion has a deterministic test or an explicit integration checklist before release.
-- Check the actual video sequence and add pause cues; lecture mapping is based on live titles and repository code, not a verified transcript review.
-- Verify a fresh learner can set up the branch and reach the first gap; document credentials, quotas and costs separately.
-- Pilot with a learner who has not seen the solution, then adjust task size and hints.
+Use the configured Azurite instance: save a short known byte sequence, check StoredBlob metadata, open and read it, dispose the returned stream, delete it, and delete again. These storage checks do not need a live AI call. Running the full application may still require the other registered service settings described in the root README.
+
+This checkpoint covers PostgreSQL, Azurite and local containers. It does not represent a completed hosted Azure deployment.
+
+## Build, compare and review
+
+```bash
+dotnet restore VibeCast.sln
+dotnet build VibeCast.sln --configuration Release --no-restore
+dotnet test VibeCast.sln --configuration Release --no-build
+```
+
+An intentional exercise exception is expected when an unfinished path runs; a compiler error is not the exercise. Some tests cover other gaps, so use a focused filter where supplied. The examples above are acceptance checks, not a claim that every case has an automated test. Use local fakes for deterministic model responses; use the configured storage emulator for storage integration.
+
+After your attempt, compare the relevant method with the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/96a17cfb477d9ecee0860b6461e44144a222bb6a). Explain behavioral differences instead of matching every line. Change one input, predict the result, then check your prediction.
+
+<details>
+<summary>Instructor validation status</summary>
+
+This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+
+</details>
