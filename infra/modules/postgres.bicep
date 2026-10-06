@@ -2,17 +2,6 @@ param serverName string
 param location string
 param tenantId string
 param databaseName string = 'vibecast'
-
-param entraAdminObjectId string
-param entraAdminName string
-
-@allowed([
-  'User'
-  'Group'
-  'ServicePrincipal'
-])
-param entraAdminType string
-
 param tags object
 
 resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
@@ -54,16 +43,6 @@ resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-0
   properties: {
     charset: 'UTF8'
     collation: 'en_US.utf8'
-  }
-}
-
-resource entraAdministrator 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = {
-  parent: server
-  name: entraAdminObjectId
-  properties: {
-    principalName: entraAdminName
-    principalType: entraAdminType
-    tenantId: tenantId
   }
 }
 

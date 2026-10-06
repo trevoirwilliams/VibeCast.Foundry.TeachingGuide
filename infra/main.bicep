@@ -8,16 +8,6 @@ param existingStorageSubscriptionId string = subscription().subscriptionId
 param existingStorageResourceGroupName string
 param existingStorageAccountName string = 'vibecastkb90423471'
 
-param postgresEntraAdminObjectId string
-param postgresEntraAdminName string
-
-@allowed([
-  'User'
-  'Group'
-  'ServicePrincipal'
-])
-param postgresEntraAdminType string = 'User'
-
 var uniqueSuffix = uniqueString(
   subscription().id,
   productionResourceGroupName
@@ -80,9 +70,6 @@ module postgres './modules/postgres.bicep' = {
     location: location
     tenantId: tenant().tenantId
     databaseName: 'vibecast'
-    entraAdminObjectId: postgresEntraAdminObjectId
-    entraAdminName: postgresEntraAdminName
-    entraAdminType: postgresEntraAdminType
     tags: commonTags
   }
 }

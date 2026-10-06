@@ -8,9 +8,6 @@ resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   tags: tags
   properties: {
     zoneRedundant: false
-    appLogsConfiguration: {
-      destination: 'none'
-    }
   }
 }
 
