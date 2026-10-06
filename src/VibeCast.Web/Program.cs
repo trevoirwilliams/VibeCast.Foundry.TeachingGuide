@@ -118,7 +118,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapHealthChecks("/health");
+// Aspire already maps /health in Development. Retain the existing
+// non-development endpoint without registering the same route twice.
+if (!app.Environment.IsDevelopment())
+{
+    app.MapHealthChecks("/health");
+}
 app.MapRazorPages();
 app.MapGet("/media/{mediaAssetId:guid}/content",
     async (
