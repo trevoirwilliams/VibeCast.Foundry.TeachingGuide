@@ -144,6 +144,8 @@ After your attempt, compare the relevant method with the [pinned reference solut
 <details>
 <summary>Instructor validation status</summary>
 
-This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+Checked on 2026-10-06: The scaffold Release build and migration check passed in GitHub Actions. Three tests reach the unfinished validator/tool tasks as expected; the other 10 tests passed.
+
+[Scaffold CI run](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/actions/runs/37503970498). A restored-solution test run and live cloud checks have not been performed for this revision. Those are still needed before claiming that every completed exercise is verified. Lesson references use titles; exact transcript pause times remain unverified.
 
 </details>

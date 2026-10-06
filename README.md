@@ -55,7 +55,7 @@ The local teaching account is defined in [SeedData.cs](src/VibeCast.Infrastructu
 dotnet test VibeCast.sln --configuration Release --no-build
 ```
 
-Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. See the task guide's validation status. A full build and restored-solution test run have not been certified.
+Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. The scaffold's Release build has passed in GitHub Actions. See the task guide's validation status for expected exercise failures and remaining checks; completed solutions and live cloud behavior have not been fully verified.
 
 Accept a valid plan; reject invalid segment totals; allow one repair only; require the policy tool; save and reload an accepted plan.
 
