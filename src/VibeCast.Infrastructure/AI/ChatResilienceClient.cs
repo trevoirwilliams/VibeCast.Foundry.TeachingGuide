@@ -14,8 +14,12 @@ public sealed class ChatResilienceClient(
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        // PRACTICE S08-01: Link caller cancellation to a timeout, acquire a rate-limit lease, reject unavailable capacity and pass the bounded token to the inner client. Dispose the resources.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S08-01: GetResponseAsync
+        // 1. Link the caller's cancellation token and start the configured timeout.
+        // 2. Acquire one capacity permit using the linked token; reject an unacquired lease.
+        // 3. Forward messages and options to the inner client with that token.
+        // 4. Await completion before disposing the lease and token source.
+        // Optional API hints and checks: docs/practice/README.md#s08-01-getresponseasync
         throw new NotImplementedException("S08-01: implement GetResponseAsync.");
     }
 
@@ -25,8 +29,12 @@ public sealed class ChatResilienceClient(
             ChatOptions? options = null,
             CancellationToken cancellationToken = default)
     {
-        // PRACTICE S08-02: Apply the same cancellation and capacity boundary for the whole stream lifetime. Yield updates in order and release resources when enumeration ends.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S08-02: GetStreamingResponseAsync
+        // 1. Apply the same linked timeout and capacity acquisition as the regular call.
+        // 2. Keep the lease alive while enumerating the inner response stream.
+        // 3. Yield each update unchanged and in order.
+        // 4. Release resources on completion, failure, cancellation or early disposal.
+        // Optional API hints and checks: docs/practice/README.md#s08-02-getstreamingresponseasync
         throw new NotImplementedException("S08-02: implement GetStreamingResponseAsync.");
     }
 }
