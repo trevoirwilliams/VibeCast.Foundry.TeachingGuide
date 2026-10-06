@@ -52,6 +52,7 @@ public sealed class MediaAssetServiceTests
         var service = new EfMediaAssetService(
             new TestDbContextFactory(options),
             blobStorage: null!,
+            knowledgeSourceStorage: null!,
             new MediaUploadValidator(),
             artworkValidator: null!,
             logger: null!);
