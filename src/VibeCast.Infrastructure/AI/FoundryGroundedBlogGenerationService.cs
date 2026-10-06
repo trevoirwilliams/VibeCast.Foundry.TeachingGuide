@@ -192,7 +192,7 @@ public sealed class FoundryGroundedBlogGenerationService(
         // 1. Use only the source URLs already resolved by the caller.
         // 2. Remove blank and duplicate values; reject an empty allowed set.
         // 3. Escape each URL as an OData string literal using the supplied helper.
-        // 4. Combine equality conditions on the configured source field with OR.
+        // 4. Build a search.in filter on the configured source field from the escaped values.
         // Optional API hints and checks: docs/practice/README.md#s07-01-buildsourcefilter
         throw new NotImplementedException("S07-01: implement BuildSourceFilter.");
     }

@@ -20,18 +20,18 @@ Save or commit your work before switching branches. Each section starts independ
 1. Use only the source URLs already resolved by the caller.
 2. Remove blank and duplicate values; reject an empty allowed set.
 3. Escape each URL as an OData string literal using the supplied helper.
-4. Combine equality conditions on the configured source field with OR.
+4. Build a search.in filter on the configured source field from the escaped values.
 
 <details>
 <summary>Optional API hint</summary>
 
-Use StringComparer.Ordinal for deduplication. EscapeODataString doubles apostrophes. For field metadata_storage_path and URL https://example.test/a.pdf, a clause is metadata_storage_path eq 'https://example.test/a.pdf'. Combine clauses with ' or '. For an empty set throw SafeApplicationException; do not return an empty filter that could broaden retrieval.
+Use StringComparer.Ordinal for deduplication. EscapeODataString doubles apostrophes. This checkpoint uses search.in: join the escaped URL values with a pipe delimiter and include that delimiter in the filter. For field blob_url and one URL, the shape is search.in(blob_url, 'https://example.test/a.pdf', '|'). For an empty set throw SafeApplicationException; do not return an empty filter that could broaden retrieval.
 
 </details>
 
 **Check your result:**
 
-- Duplicate URLs → one condition per distinct URL.
+- Duplicate URLs → one entry per distinct URL in the filter.
 - A URL containing O'Brien.pdf → O''Brien.pdf inside the quoted literal.
 - No usable URLs → rejection, never an unrestricted query.
 
@@ -113,6 +113,8 @@ After your attempt, compare the relevant method with the [pinned reference solut
 <details>
 <summary>Instructor validation status</summary>
 
-This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+Checked on 2026-10-06: The scaffold Release build, migration check and existing test suite passed in GitHub Actions. The helper exercises still need the acceptance checks above; a passing existing suite does not mean those gaps are complete.
+
+[Scaffold CI run](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/actions/runs/37504309077). A restored-solution test run and live cloud checks have not been performed for this revision. Those are still needed before claiming that every completed exercise is verified. Lesson references use titles; exact transcript pause times remain unverified.
 
 </details>
