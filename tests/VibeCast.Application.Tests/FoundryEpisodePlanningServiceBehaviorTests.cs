@@ -14,16 +14,24 @@ public sealed class FoundryEpisodePlanningServiceBehaviorTests
     [TestMethod]
     public Task GenerateAsync_WhenInitialPlanIsInvalidAndRepairIsValid_ReturnsRepairedPlan()
     {
-        // PRACTICE S08T-01: Use the supplied fake and plan factory to demonstrate a failed initial plan followed by a valid repair. Assert the result, call bound and repair metadata.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S08T-01: GenerateAsync_WhenInitialPlanIsInvalidAndRepairIsValid_ReturnsRepairedPlan
+        // 1. Arrange an invalid timing plan, then a valid repair using the supplied factory.
+        // 2. Queue both responses in the fake client and construct the real planning service.
+        // 3. Call the service once with the supplied request factory.
+        // 4. Assert two model calls, the repaired plan and accurate repair metadata.
+        // Optional API hints and checks: docs/practice/README.md#s08t-01-generateasync_wheninitialplanisinvalidandrepairisvalid_returnsrepairedplan
         throw new NotImplementedException("S08T-01: implement GenerateAsync_WhenInitialPlanIsInvalidAndRepairIsValid_ReturnsRepairedPlan.");
     }
 
     [TestMethod]
     public Task GenerateAsync_WhenRepairIsStillInvalid_ThrowsAfterOneRepairAttempt()
     {
-        // PRACTICE S08T-02: Arrange two invalid plans. Prove the service rejects the second result without a third model call, and reports the validation failure.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S08T-02: GenerateAsync_WhenRepairIsStillInvalid_ThrowsAfterOneRepairAttempt
+        // 1. Arrange two plans whose segment durations do not match the target.
+        // 2. Queue both in the fake and construct the real planning service.
+        // 3. Assert that calling the service throws the domain validation exception.
+        // 4. Assert exactly two model calls and the relevant failure and repair evidence.
+        // Optional API hints and checks: docs/practice/README.md#s08t-02-generateasync_whenrepairisstillinvalid_throwsafteronerepairattempt
         throw new NotImplementedException("S08T-02: implement GenerateAsync_WhenRepairIsStillInvalid_ThrowsAfterOneRepairAttempt.");
     }
 
