@@ -39,18 +39,28 @@ public sealed class FoundryEpisodeConceptGenerator(
     public Task<EpisodeConceptResult> GenerateAsync(GenerateEpisodeConceptRequest request, 
         CancellationToken cancellationToken = default)
     {
-        // PRACTICE S04-02: Call the injected chat client with cancellation. Reject empty output and return an episode concept without logging its content.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S04-02: GenerateAsync
+        // 1. Guard against a null request, then reuse the supplied request builder.
+        // 2. Request one completed response with the messages, options and caller token.
+        // 3. Extract and trim the combined text; reject empty or whitespace output.
+        // 4. Return an EpisodeConceptResult containing the accepted text; do not log it.
+        // Optional API hints and checks: docs/practice/README.md#s04-02-generateasync
         throw new NotImplementedException("S04-02: implement GenerateAsync.");
     }
 
     public IAsyncEnumerable<string> StreamAsync(GenerateEpisodeConceptRequest request, CancellationToken cancellationToken = default)
     {
-        // PRACTICE S04-03: Stream nonempty text updates in order. Propagate cancellation and reject a stream that produces no text.
-        // Completion criteria and optional hints: docs/practice/README.md.
+        // PRACTICE S04-03: StreamAsync
+        // 1. Guard the request and reuse the supplied request builder.
+        // 2. Enumerate streamed updates with the caller token.
+        // 3. Yield each nonempty text fragment unchanged and in order; keep spaces.
+        // 4. After enumeration, reject a stream that delivered no characters.
+        // Optional API hints and checks: docs/practice/README.md#s04-03-streamasync
         throw new NotImplementedException("S04-03: implement StreamAsync.");
     }
 
+    // S04-01 worked example (supplied): inspect the message roles, serialized
+    // brief and output limit before implementing S04-02. Keep this helper intact.
     private (ChatMessage[] messages, ChatOptions chatOptions) CreateModelRequest(GenerateEpisodeConceptRequest request)
     {
         string editorialBrief = JsonSerializer.Serialize(

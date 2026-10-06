@@ -1,71 +1,98 @@
 # Backend practice: Foundations of Generative AI Development With .NET
 
-> Instructor review draft. C# syntax checked; full solution build, behavior tests, cloud smoke tests and transcript timing are not verified in this environment. Run the release gates below before assigning this branch to students.
+## Start here
 
-## Choose your route
+Use the root [README](../../README.md) for this branch's setup and pinned package versions. Supporting UI and application code are supplied so you can focus on the backend tasks below. This enriched scaffold may contain supporting files that appear later in the recording.
 
-- Practice route: attempt these tasks before watching the matching implementation video. Use the video as a worked solution afterward.
-- Guided route: watch the explanation first, pause before implementation, then attempt the task. Do not simply copy the finished code.
-- Already watched? Rebuild each missing behavior without opening the reference, then explain one failure case.
+Watch the feature explanation, pause before the implementation, and try the matching task. If you have already watched it, attempt the task before opening the solution. Read the numbered comments first; expand an optional hint only when you need it. You may ask Copilot to explain one unfamiliar API or failed check.
 
-This branch is based on `section-04-ai-client-start` at `560dd7c964f9d54ed5a2404014afd7c7538691c7`. Supporting files, UI, contracts, registration and migrations come from `section-04-ai-client-complete` at `fab04059d970dbaebe2c28c95c06c651bccbd95b`, with the core exercise implementations removed. It is an enriched section-start snapshot, so some supporting code appears earlier than in the video. Original start/complete branches are unchanged. Start each section independently; unfinished exercises do not carry forward.
+Search for `PRACTICE S` in C# files. Each named `NotImplementedException` is an intentional gap. Replace it with real behavior, not dummy output. Task-returning stubs omit `async`; add it when using `await`. Streaming tasks need an async iterator, `yield return` and the cancellation attribute described in their hints.
 
-Use the setup in `docs/local-development.md` and this checkpoint's pinned package files. Do not upgrade packages while solving an exercise. Cloud credentials and model deployments are still needed for live features; deterministic tests should not use them. Preserve all ownership and validation checks supplied in surrounding code.
+Save or commit your work before switching branches. Each section starts independently; your unfinished code does not carry forward automatically.
 
-## Your tasks
+### S04-01: Supplied request-building example
 
-Find `PRACTICE S` in C# files. Each intentional `NotImplementedException` identifies an unfinished behavior. These failures are expected until that task is implemented; do not replace them with dummy output, skip tests or suppress assertions. When implementing an asynchronous stub, restore `async` when needed; streaming implementations also need iterator syntax and appropriate cancellation handling.
+`CreateModelRequest` is complete. Read it to see how system instructions, user data and output limits form a request. Reuse it in both exercises; you do not need to implement it again.
 
-### S04-01: CreateModelRequest
-
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs)
-- Attempt before: **Generate the First VibeCast Episode Concept with Foundry** (lecture 32).
-- Target practice time: 15 minutes, an initial estimate to calibrate with learners.
-- Task: Build the model request from the editorial brief. Keep system instructions separate from serialized user data and set an output limit.
-- Done when: Messages preserve roles and all brief fields; output is bounded.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
-
+<a id="s04-02-generateasync"></a>
 ### S04-02: GenerateAsync
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs)
-- Attempt before: **Generate the First VibeCast Episode Concept with Foundry** (lecture 32).
-- Target practice time: 20 minutes, an initial estimate to calibrate with learners.
-- Task: Call the injected chat client with cancellation. Reject empty output and return an episode concept without logging its content.
-- Done when: Valid text returns a concept; whitespace fails; caller cancellation reaches the client.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs)
+- **Attempt before:** **Generate the First VibeCast Episode Concept with Foundry**.
+- **Already provided / prerequisites:** CreateModelRequest supplies messages and options; EpisodeConceptResult is the application return type.
 
+1. Guard against a null request, then reuse the supplied request builder.
+2. Request one completed response with the messages, options and caller token.
+3. Extract and trim the combined text; reject empty or whitespace output.
+4. Return an EpisodeConceptResult containing the accepted text; do not log it.
+
+<details>
+<summary>Optional API hint</summary>
+
+Use CreateModelRequest, then await chatClient.GetResponseAsync. ChatResponse.Text is the combined text for this plain-text feature; Messages is the message collection. EpisodeConceptResult takes the accepted string in its Content constructor parameter. Use InvalidOperationException for unusable output.
+
+</details>
+
+**Check your result:**
+
+- Response text `  A useful concept  ` → result.Content is `A useful concept`.
+- Empty or whitespace-only text → InvalidOperationException.
+- An already-cancelled caller token reaches the fake client → cancellation, not a successful concept.
+
+**Explain:** Why does the application return EpisodeConceptResult instead of exposing ChatResponse?
+
+<a id="s04-03-streamasync"></a>
 ### S04-03: StreamAsync
 
-- File: [src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs)
-- Attempt before: **Streaming The Foundry Response to the Client** (lecture 34).
-- Target practice time: 20 minutes, an initial estimate to calibrate with learners.
-- Task: Stream nonempty text updates in order. Propagate cancellation and reject a stream that produces no text.
-- Done when: Chunks remain ordered; empty updates are ignored; empty streams fail.
-- Evidence to keep: a test result or reproducible input/output observation, plus two sentences explaining a rejected case.
+- **File:** [src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs](../../src/VibeCast.Infrastructure/AI/FoundryEpisodeConceptGenerator.cs)
+- **Attempt before:** **Streaming The Foundry Response to the Client**.
+- **Already provided / prerequisites:** The same request builder and client used by S04-02 are supplied.
 
-## Optional hint
+1. Guard the request and reuse the supplied request builder.
+2. Enumerate streamed updates with the caller token.
+3. Yield each nonempty text fragment unchanged and in order; keep spaces.
+4. After enumeration, reject a stream that delivered no characters.
 
-Use ChatRole.System and ChatRole.User deliberately. A stream is consumed over time; test more than its final concatenated text.
+<details>
+<summary>Optional API hint</summary>
 
-## Validate and compare
+Use an async iterator, await foreach, chatClient.GetStreamingResponseAsync and update.Text. Skip null/empty fragments, not whitespace fragments. Use yield return and count emitted characters. When implementing the iterator, add [System.Runtime.CompilerServices.EnumeratorCancellation] to its token parameter so cancellation passed to enumeration also works.
 
-1. Run `dotnet restore VibeCast.sln` and `dotnet build VibeCast.sln --configuration Release --no-restore`. Exercise failures should be behavioral; missing dependencies or compile errors are setup/implementation problems.
-2. Run `dotnet test VibeCast.sln --configuration Release --no-build`. Existing tests remain supplied. Tests exercising gaps may fail with the named exercise exception. This pack does not claim that every criterion already has an automated test.
-3. Add or run a focused test for the task's success and rejection paths. Use local fakes for model behavior. Use Azurite for storage integration. Run cloud smoke checks only after deterministic checks; avoid repeated paid calls as a debugging loop.
-4. Compare your implementation with the same file at the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/fab04059d970dbaebe2c28c95c06c651bccbd95b). Compare behavior and explain differences; matching every line is unnecessary.
-5. Change one input or failure mode and predict the outcome before running it. Record whether the prediction was correct.
+</details>
 
-After finishing, use `git diff` to review your own changes. Commit your work before changing branches. To see one reference file without replacing your work, use `git show section-04-ai-client-complete:path/to/file.cs` with a file path from the task list.
+**Check your result:**
 
-## Using Copilot
+- Updates `Hello`, ``, ` `, `world` → fragments `Hello`, ` `, `world`; combined text `Hello world`.
+- No updates, or only empty updates → InvalidOperationException when enumerated.
+- Cancellation during enumeration → cancellation propagates; do not return a fabricated final response.
 
-Try the task first. Ask for an explanation or a hint about one failed case. In the testing lesson, ask Copilot to propose behavior cases, inspect its assertions, then deliberately break the relevant behavior in a disposable local copy and confirm the test detects it. Do not ask an agent to fill every practice gap in one pass. No new agent instructions or skills are installed by this pack.
+**Explain:** Why would trimming every fragment damage the result?
 
-## Instructor release gates
+## Focused checks without a live model
 
-- Build the untouched scaffold and classify expected exercise failures separately from regressions.
-- Restore the reference implementation for each gap and run the full test suite; all tests must pass.
-- Ensure every core acceptance criterion has a deterministic test or an explicit integration checklist before release.
-- Check the actual video sequence and add pause cues; lecture mapping is based on live titles and repository code, not a verified transcript review.
-- Verify a fresh learner can set up the branch and reach the first gap; document credentials, quotas and costs separately.
-- Pilot with a learner who has not seen the solution, then adjust task size and hints.
+The supplied `EpisodeConceptPracticeTests` uses an in-memory fake client. No credentials or model calls are needed for these tests. The named tests fail until you implement S04-02/S04-03; their failure messages and assertions show the expected behavior.
+
+```bash
+dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release --filter "FullyQualifiedName~EpisodeConceptPracticeTests"
+```
+
+To work on only one exercise, append `&FullyQualifiedName~GenerateAsync` or `&FullyQualifiedName~StreamAsync` inside the filter quotes.
+
+## Build, compare and review
+
+```bash
+dotnet restore VibeCast.sln
+dotnet build VibeCast.sln --configuration Release --no-restore
+dotnet test VibeCast.sln --configuration Release --no-build
+```
+
+An intentional exercise exception is expected when an unfinished path runs; a compiler error is not the exercise. Some tests cover other gaps, so use a focused filter where supplied. The examples above are acceptance checks, not a claim that every case has an automated test. Use local fakes for deterministic model responses; use the configured storage emulator for storage integration.
+
+After your attempt, compare the relevant method with the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/fab04059d970dbaebe2c28c95c06c651bccbd95b). Explain behavioral differences instead of matching every line. Change one input, predict the result, then check your prediction.
+
+<details>
+<summary>Instructor validation status</summary>
+
+This revision repairs misplaced exercise bodies and adds staged guidance. Full build, restored-solution tests and cloud smoke checks must be verified; the revision is not a certification that those checks passed. Before release, build the untouched scaffold, restore the missing implementations in a disposable copy, and run the tests. Distinguish expected exercise failures from unrelated failures. Lesson references use titles; exact transcript pause times remain unverified.
+
+</details>

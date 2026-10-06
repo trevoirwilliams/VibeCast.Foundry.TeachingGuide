@@ -9,7 +9,7 @@ Connect an application-owned AI service to Microsoft Foundry, generate an episod
 
 The authenticated Blazor shell, Identity, SQLite, domain/application projects, local blob abstraction, channel queue and test projects are supplied.
 
-This branch imports the completed section's supporting UI, contracts and configuration, then leaves **3 backend tasks** intentionally unfinished. Open [PRACTICE.md](PRACTICE.md) and the [task guide](docs/practice/README.md) before running a target feature. Named `NotImplementedException` failures identify work to implement; the branch is not a finished application release.
+This branch imports the completed section's supporting UI, contracts and configuration, then leaves **2 backend tasks** intentionally unfinished; S04-01 is a supplied request-building example. Open [PRACTICE.md](PRACTICE.md) and the [task guide](docs/practice/README.md) before running a target feature. Named `NotImplementedException` failures identify work to implement; the branch is not a finished application release.
 
 ## Lesson and code map
 
@@ -53,7 +53,7 @@ The local teaching account is defined in [SeedData.cs](src/VibeCast.Infrastructu
 dotnet test VibeCast.sln --configuration Release --no-build
 ```
 
-Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. The practice scaffold has had syntax checks, not a full build or behavioral certification.
+Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. See the task guide's validation status. A full build and restored-solution test run have not been certified.
 
 Generate a concept from a brief, reject an empty fake response and check streamed update order and cancellation.
 
