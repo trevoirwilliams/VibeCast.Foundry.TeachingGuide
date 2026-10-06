@@ -45,7 +45,7 @@ public sealed class FoundryGroundedBlogGenerationService(
 
     private readonly KnowledgeStorageOptions _options = options.Value;
 
-    public Task<GroundedBlogDraft> GenerateAsync(
+    public async Task<GroundedBlogDraft> GenerateAsync(
         GenerateGroundedBlogRequest request,
         string ownerId,
         CancellationToken cancellationToken = default)
@@ -188,9 +188,13 @@ public sealed class FoundryGroundedBlogGenerationService(
 
     private static string BuildSourceFilter(string sourcePathField, IEnumerable<string> blobUrls)
     {
-        // PRACTICE S07-03: Validate the draft structure and cited reference IDs against the retrieved evidence. Reject missing or invented citations; normalize accepted references.
-        // Completion criteria and optional hints: docs/practice/README.md.
-        throw new NotImplementedException("S07-03: implement ValidateBlog.");
+        // PRACTICE S07-01: BuildSourceFilter
+        // 1. Use only the source URLs already resolved by the caller.
+        // 2. Remove blank and duplicate values; reject an empty allowed set.
+        // 3. Escape each URL as an OData string literal using the supplied helper.
+        // 4. Combine equality conditions on the configured source field with OR.
+        // Optional API hints and checks: docs/practice/README.md#s07-01-buildsourcefilter
+        throw new NotImplementedException("S07-01: implement BuildSourceFilter.");
     }
 
     private static string EscapeODataString(string value)
@@ -203,53 +207,13 @@ public sealed class FoundryGroundedBlogGenerationService(
 
     private static GroundedEvidenceReference[] ReadEvidenceReferences(string grounding)
     {
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(grounding);
-
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            List<GroundedEvidenceReference> references = [];
-
-            foreach (JsonElement item in document.RootElement.EnumerateArray())
-            {
-                if (!item.TryGetProperty("ref_id", out JsonElement referenceElement))
-                {
-                    continue;
-                }
-
-                string? referenceId = referenceElement.ValueKind switch
-                {
-                    JsonValueKind.String => referenceElement.GetString(),
-                    JsonValueKind.Number => referenceElement.GetRawText(),
-                    _ => null
-                };
-
-                if (string.IsNullOrWhiteSpace(referenceId))
-                {
-                    continue;
-                }
-
-                string content = item.TryGetProperty("content", out JsonElement contentElement)
-                    ? contentElement.GetString() ?? string.Empty
-                    : string.Empty;
-
-                references.Add(new GroundedEvidenceReference
-                {
-                    ReferenceId = referenceId,
-                    Snippet = CreateSnippet(content)
-                });
-            }
-
-            return references.ToArray();
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
+        // PRACTICE S07-02: ReadEvidenceReferences
+        // 1. Parse grounding as a JSON array; treat unusable input as no evidence.
+        // 2. Read each reference ID, accepting strings and numbers as strings.
+        // 3. Skip entries without a usable ID and create snippets from content.
+        // 4. Return the reference array; the caller rejects an empty array.
+        // Optional API hints and checks: docs/practice/README.md#s07-02-readevidencereferences
+        throw new NotImplementedException("S07-02: implement ReadEvidenceReferences.");
     }
 
     private static string CreateSnippet(string content)
@@ -272,41 +236,13 @@ public sealed class FoundryGroundedBlogGenerationService(
 
     private static void ValidateBlog(GroundedBlogDraft blog, IReadOnlySet<string> availableReferenceIds)
     {
-        if (string.IsNullOrWhiteSpace(blog.Title))
-        {
-            throw new SafeApplicationException("The generated blog did not contain a title.");
-        }
-
-        if (string.IsNullOrWhiteSpace(blog.Introduction) || string.IsNullOrWhiteSpace(blog.Conclusion))
-        {
-            throw new SafeApplicationException("The generated blog was incomplete.");
-        }
-
-        if (blog.Sections.Length is < 3 or > 6)
-        {
-            throw new SafeApplicationException("The generated blog must contain between three and six sections.");
-        }
-
-        if (blog.KeyTakeaways.Length is < 3 or > 6)
-        {
-            throw new SafeApplicationException("The generated blog must contain between three and six key takeaways.");
-        }
-
-        string[] sourceReferences = blog.SourceReferenceIds
-                .Where(reference => !string.IsNullOrWhiteSpace(reference))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-
-        if (sourceReferences.Length == 0)
-        {
-            throw new SafeApplicationException("The generated blog did not cite its retrieved evidence.");
-        }
-
-        if (sourceReferences.Any(reference => !availableReferenceIds.Contains(reference)))
-        {
-            throw new SafeApplicationException("The generated blog referenced evidence that was not retrieved from the selected sources.");
-        }
-
-        blog.SourceReferenceIds = sourceReferences;
+        // PRACTICE S07-03: ValidateBlog
+        // 1. Check the required title, introduction and conclusion.
+        // 2. Check section and takeaway counts against this feature's bounds.
+        // 3. Normalize the cited ID list by removing blank values and duplicates.
+        // 4. Reject no citations or any ID outside the supplied evidence set.
+        // 5. Assign the accepted IDs back to the draft.
+        // Optional API hints and checks: docs/practice/README.md#s07-03-validateblog
+        throw new NotImplementedException("S07-03: implement ValidateBlog.");
     }
 }
