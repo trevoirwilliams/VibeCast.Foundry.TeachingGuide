@@ -1,3 +1,4 @@
+using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.DataProtection;
@@ -8,7 +9,7 @@ namespace VibeCast.Web.Security;
 public static class DataProtectionExtensions
 {
     private const string ContainerClientKey = "data-protection";
-    public static void AddVibeCastDataProtection(this WebApplicationBuilder builder)
+    public static void AddVibeCastDataProtection(this WebApplicationBuilder builder, TokenCredential azureCredential)
     {
         DataProtectionStorageOptions options = builder.Configuration
                 .GetSection(DataProtectionStorageOptions.SectionName)
@@ -61,14 +62,12 @@ public static class DataProtectionExtensions
             throw new InvalidOperationException("DataProtection:KeyVaultKeyIdentifier must be an absolute HTTPS URI in Production.");
         }
 
-        DefaultAzureCredential credential = new();
-
         dataProtection.PersistKeysToAzureBlobStorage(
                 blobUri,
-                credential)
+                azureCredential)
             .ProtectKeysWithAzureKeyVault(
                 keyIdentifier,
-                credential);
+                azureCredential);
     }
 
     public static async Task EnsureDevelopmentDataProtectionBlobAsync(

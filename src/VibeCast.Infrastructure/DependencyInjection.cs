@@ -6,16 +6,21 @@ using Azure;
 using Azure.AI.ContentUnderstanding;
 using Azure.AI.OpenAI;
 using Azure.AI.Speech.Transcription;
+using Azure.Core;
 using Azure.Identity;
 using Azure.Search.Documents;
 using Azure.Search.Documents.KnowledgeBases;
 using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Azure.PostgreSQL.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using VibeCast.Application.Abstractions.Jobs;
 using VibeCast.Application.Abstractions.Storage;
 using VibeCast.Application.Episodes;
@@ -34,13 +39,47 @@ namespace VibeCast.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddVibeCastInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddVibeCastInfrastructure(this IServiceCollection services,
+      IConfiguration configuration,
+      IWebHostEnvironment environment,
+      TokenCredential azureCredential)
     {
         var connectionString = configuration.GetConnectionString("VibeCast")
             ?? throw new InvalidOperationException(
         "The VibeCast PostgreSQL connection string is not configured.");
 
-        services.AddDbContextFactory<VibeCastDbContext>(options => options.UseNpgsql(connectionString));
+        if (environment.IsProduction())
+        {
+            services.AddSingleton<NpgsqlDataSource>(_ =>
+            {
+                NpgsqlDataSourceBuilder dataSourceBuilder = new(connectionString);
+                dataSourceBuilder.UseEntraAuthentication(azureCredential);
+                return dataSourceBuilder.Build();
+            });
+
+            services.AddDbContextFactory<VibeCastDbContext>(
+                (serviceProvider, options) =>
+                {
+                    NpgsqlDataSource dataSource = serviceProvider.GetRequiredService<
+                            NpgsqlDataSource>();
+
+                    options.UseNpgsql(dataSource);
+                });
+        }
+        else
+        {
+            services.AddDbContextFactory<VibeCastDbContext>( options =>
+                    options.UseNpgsql(connectionString));
+        }
+
+        services.AddOptions<AzureIdentityOptions>()
+        .Bind(configuration.GetSection(AzureIdentityOptions.SectionName))
+        .Validate(options =>
+                !environment.IsProduction() || Guid.TryParse(
+                    options.ManagedIdentityClientId,
+                    out _),
+            "AzureIdentity:ManagedIdentityClientId must be a valid GUID in Production.")
+        .ValidateOnStart();
 
         services.AddOptions<KnowledgeStorageOptions>()
             .Bind(configuration.GetSection(KnowledgeStorageOptions.SectionName))
@@ -66,19 +105,58 @@ public static class DependencyInjection
 
         services.AddOptions<FoundryOptions>()
             .Bind(configuration.GetSection(FoundryOptions.SectionName))
+            .Validate(options =>
+                    !environment.IsDevelopment() || !string.IsNullOrWhiteSpace(
+                        options.ApiKey),
+                "Foundry:ApiKey is required in Development.")
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         services.AddOptions<SpeechOptions>()
             .Bind(configuration.GetSection(SpeechOptions.SectionName))
+            .Validate(options =>
+                !environment.IsDevelopment() || !string.IsNullOrWhiteSpace(
+                    options.ApiKey),
+            "Speech:ApiKey is required in Development.")
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         services.AddOptions<ContentUnderstandingOptions>()
             .Bind(configuration.GetSection(ContentUnderstandingOptions.SectionName))
+            .Validate(options =>
+                    !environment.IsDevelopment() || !string.IsNullOrWhiteSpace(
+                        options.ApiKey),
+                "ContentUnderstanding:ApiKey is required in Development.")
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        if (environment.IsProduction())
+        {
+            services.AddOptions<MediaStorageOptions>()
+                .Bind(configuration.GetSection(MediaStorageOptions.SectionName))
+                .ValidateDataAnnotations()
+                .Validate(options => 
+                        Uri.TryCreate(options.ServiceUri,UriKind.Absolute,
+                            out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps,
+                    "MediaStorage:ServiceUri must be an absolute HTTPS URI.")
+                .ValidateOnStart();
+        }
+
+        if (environment.IsProduction())
+        {
+            services.AddKeyedSingleton<BlobContainerClient>("media",
+                (serviceProvider, _) =>
+                {
+                    MediaStorageOptions options = serviceProvider.GetRequiredService<
+                                IOptions<MediaStorageOptions>>().Value;
+                    Uri serviceUri = new(options.ServiceUri, UriKind.Absolute);
+                    Uri containerUri = new(serviceUri, options.ContainerName);
+
+                    return new BlobContainerClient(
+                        containerUri,
+                        azureCredential);
+                });
+        }
 
         services.AddSingleton<IBlobStorage>(provider =>
         {
@@ -98,7 +176,7 @@ public static class DependencyInjection
                 new Uri(
                     options.ServiceUri,
                     UriKind.Absolute),
-                new DefaultAzureCredential());
+                azureCredential);
         });
 
         services.AddSingleton<RateLimiter>(serviceProvider =>
@@ -134,7 +212,7 @@ public static class DependencyInjection
                 return new KnowledgeBaseRetrievalClient(
                     new Uri(options.SearchEndpoint, UriKind.Absolute),
                     options.KnowledgeBaseName,
-                    new DefaultAzureCredential(),
+                    azureCredential,
                     clientOptions);
             });
 
@@ -156,15 +234,14 @@ public static class DependencyInjection
         services.AddScoped<IEpisodeFormatPolicyProvider, EfEpisodeFormatPolicyProvider>();
         services.AddScoped<IMediaAssetService, EfMediaAssetService>();
 
-        IServiceCollection serviceCollection = services.AddSingleton(serviceProvider =>
+        IServiceCollection serviceCollection = services.AddSingleton(
+        serviceProvider =>
         {
             FoundryOptions options = serviceProvider
                 .GetRequiredService<IOptions<FoundryOptions>>()
                 .Value;
 
-            ILoggerFactory loggerFactory =
-                serviceProvider
-                    .GetRequiredService<ILoggerFactory>();
+            ILoggerFactory loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
 
             AzureOpenAIClientOptions clientOptions = new()
             {
@@ -174,10 +251,20 @@ public static class DependencyInjection
                     loggerFactory: loggerFactory)
             };
 
-            return new AzureOpenAIClient(
-                new Uri(
+            Uri endpoint = new Uri(
                     options.ProjectEndpoint,
-                    UriKind.Absolute),
+                    UriKind.Absolute);
+
+            if (environment.IsProduction())
+            {
+                return new AzureOpenAIClient(
+                    endpoint,
+                    azureCredential,
+                    clientOptions);
+            }
+
+            return new AzureOpenAIClient(
+                endpoint,
                 new ApiKeyCredential(options.ApiKey ?? string.Empty),
                 clientOptions);
         });
@@ -257,8 +344,26 @@ public static class DependencyInjection
                 .GetRequiredService<IOptions<SpeechOptions>>()
                 .Value;
 
+            Uri endpoint =
+            new(
+                options.Endpoint,
+                UriKind.Absolute);
+
+            if (environment.IsProduction())
+            {
+                return new TranscriptionClient(
+                    endpoint,
+                    azureCredential);
+            }
+
+            if (string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                throw new InvalidOperationException(
+                    "TranscriptionClient:ApiKey is required outside Production.");
+            }
+
             return new TranscriptionClient(
-                new Uri(options.Endpoint, UriKind.Absolute),
+                endpoint,
                 new ApiKeyCredential(options.ApiKey));
         });
 
@@ -268,12 +373,27 @@ public static class DependencyInjection
                 .GetRequiredService<IOptions<ContentUnderstandingOptions>>()
                 .Value;
 
+            Uri endpoint =
+            new(
+                options.Endpoint,
+                UriKind.Absolute);
+
+            if (environment.IsProduction())
+            {
+                return new ContentUnderstandingClient(
+                    endpoint,
+                    azureCredential);
+            }
+
+            if (string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                throw new InvalidOperationException(
+                    "ContentUnderstanding:ApiKey is required outside Production.");
+            }
+
             return new ContentUnderstandingClient(
-                new Uri(
-                    options.Endpoint,
-                    UriKind.Absolute),
-                new AzureKeyCredential(
-                    options.ApiKey));
+                endpoint,
+                new AzureKeyCredential(options.ApiKey));
         });
 
         services.AddScoped<

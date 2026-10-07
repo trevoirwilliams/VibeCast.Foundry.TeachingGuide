@@ -31,6 +31,13 @@ var contentUnderstandingApiKey = builder.AddParameter("content-understanding-api
 var knowledgeStorageServiceUri = builder.AddParameter("knowledge-storage-service-uri");
 var knowledgeSearchEndpoint = builder.AddParameter("knowledge-search-endpoint");
 
+var azureTenantId = builder.AddParameter("azure-tenant-id");
+
+var azureClientId = builder.AddParameter("azure-client-id");
+
+var azureClientSecret = builder.AddParameter("azure-client-secret",
+        secret: true);
+
 builder.AddDockerfile("vibecast-web", "..")
     .WithHttpEndpoint(port: 8080, targetPort: 8080, name: "http")
     .WithExternalHttpEndpoints()
@@ -46,6 +53,9 @@ builder.AddDockerfile("vibecast-web", "..")
     .WithEnvironment("ContentUnderstanding__ApiKey", contentUnderstandingApiKey)
     .WithEnvironment("KnowledgeStorage__ServiceUri", knowledgeStorageServiceUri)
     .WithEnvironment("KnowledgeStorage__SearchEndpoint", knowledgeSearchEndpoint)
+    .WithEnvironment("AZURE_TENANT_ID",azureTenantId)
+    .WithEnvironment("AZURE_CLIENT_ID",azureClientId)
+    .WithEnvironment("AZURE_CLIENT_SECRET",azureClientSecret)
     .WithReference(vibecastDatabase)
     .WithReference(mediaStorage)
     .WithReference(dataProtectionStorage)

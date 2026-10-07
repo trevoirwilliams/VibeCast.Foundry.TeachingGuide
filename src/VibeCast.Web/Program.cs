@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Azure.Core;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using VibeCast.Application.Media;
 using VibeCast.Infrastructure;
+using VibeCast.Infrastructure.Authentication;
 using VibeCast.Infrastructure.Data;
 using VibeCast.ServiceDefaults;
 using VibeCast.Web;
@@ -17,8 +19,17 @@ using VibeCast.Web.Telemetry;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
-builder.AddKeyedAzureBlobContainerClient("media");
-builder.AddKeyedAzureBlobContainerClient("data-protection");
+if (builder.Environment.IsDevelopment())
+{
+    builder.AddKeyedAzureBlobContainerClient("media");
+    builder.AddKeyedAzureBlobContainerClient("data-protection");
+}
+
+TokenCredential azureCredential = AzureCredentialFactory.Create(
+        builder.Configuration,
+        builder.Environment);
+
+builder.Services.AddSingleton(azureCredential);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -60,8 +71,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/access-denied";
 });
 
-builder.Services.AddVibeCastInfrastructure(builder.Configuration);
-builder.AddVibeCastDataProtection();
+builder.Services.AddVibeCastInfrastructure(
+    builder.Configuration,
+    builder.Environment,
+    azureCredential);
+
+builder.AddVibeCastDataProtection(azureCredential);
 
 var app = builder.Build();
 
