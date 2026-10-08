@@ -106,19 +106,15 @@ public static class Extensions
     public static WebApplication MapDefaultEndpoints(
         this WebApplication app)
     {
-        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
-        {
-            app.MapHealthChecks(HealthEndpointPath);
-
-            app.MapHealthChecks(
-                AlivenessEndpointPath,
-                new HealthCheckOptions
-                {
-                    Predicate =
-                        registration =>
-                            registration.Tags.Contains("live")
-                });
-        }
+        // Public probe endpoints return health status only, never configuration.
+        // Keep liveness free of Azure dependency checks to avoid restart loops.
+        app.MapHealthChecks(HealthEndpointPath);
+        app.MapHealthChecks(
+            AlivenessEndpointPath,
+            new HealthCheckOptions
+            {
+                Predicate = registration => registration.Tags.Contains("live")
+            });
 
         return app;
     }
