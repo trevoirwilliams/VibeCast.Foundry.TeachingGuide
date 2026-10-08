@@ -123,9 +123,8 @@ $pgServerName = $pgServerId.Split('/')[-1]
 if ($script:pgDatabase -notmatch '^[a-zA-Z][a-zA-Z0-9_]*$') {
     throw 'Unexpected PostgreSQL database identifier.'
 }
-if (-not ([guid]::TryParse($expectedPrincipalId, [ref]([guid]::Empty)))) {
-    throw 'Invalid managed identity principal ID from Bicep.'
-}
+try { $null = [guid]::Parse($expectedPrincipalId) }
+catch { throw 'Invalid managed identity principal ID from Bicep.' }
 $pgAdmin = (Invoke-Checked -Command 'az' -Arguments @('ad','signed-in-user','show','--output','json') -Description 'signed-in PostgreSQL administrator lookup') | ConvertFrom-Json
 $script:pgAdminUpn = [string]$pgAdmin.userPrincipalName
 if ([string]::IsNullOrWhiteSpace($script:pgAdminUpn)) {
