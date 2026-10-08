@@ -26,6 +26,7 @@ param(
     [string]$ContentUnderstandingEndpoint = $env:VIBECAST_CONTENT_UNDERSTANDING_ENDPOINT,
     [switch]$DatabaseBootstrapVerified,
     [switch]$EnableRegistrationTemporarily,
+    [string]$DemoAccountEmail,
     [switch]$SkipTests
 )
 Set-StrictMode -Version Latest
@@ -95,6 +96,11 @@ if (-not $DatabaseBootstrapVerified) {
     throw 'Database has not been confirmed ready. Run infra/bootstrap-production-database.ps1 first, then rerun with -DatabaseBootstrapVerified.'
 }
 $account = (Invoke-Checked -Command 'az' -Arguments @('account','show','--output','json') -Description 'reading active Azure account') | ConvertFrom-Json
+if ($EnableRegistrationTemporarily -and
+    ($DemoAccountEmail -notmatch '^[^\s@]+@[^\s@]+\.[^\s@]+$')) {
+    throw 'Temporary onboarding requires -DemoAccountEmail with the designated nonproduction email. No passwords are accepted.'
+}
+if (-not $EnableRegistrationTemporarily) { $DemoAccountEmail = '' }
 $outputs = (Invoke-Checked -Command 'az' -Arguments @(
     'deployment','sub','show','--name',$DeploymentName,
     '--query','properties.outputs','--output','json'
@@ -114,6 +120,13 @@ $storageServiceUri = Get-RequiredOutput -Outputs $outputs -Name 'storageServiceU
 $dataProtectionBlobUri = Get-RequiredOutput -Outputs $outputs -Name 'dataProtectionBlobUri'
 $dataProtectionKeyIdentifier = Get-RequiredOutput -Outputs $outputs -Name 'dataProtectionKeyIdentifier'
 $registryName = $registryId.Split('/')[-1]
+if ($environmentId.Split('/')[-1] -ne 'cae-vibecast-prod' -or
+    $identityId.Split('/')[-1] -ne 'id-vibecast-prod') {
+    throw 'This checkpoint requires the existing cae-vibecast-prod environment and id-vibecast-prod identity.'
+}
+if ($postgresConnectionString -match '(?i)(password|pwd)\s*=') {
+    throw 'Production PostgreSQL must use Entra authentication, without a password in deployment parameters.'
+}
 
 $environment = (Invoke-Checked -Command 'az' -Arguments @(
     'resource','show','--ids',$environmentId,'--output','json'
@@ -166,7 +179,7 @@ try {
     Write-Host "Public ingress  : HTTPS"
     Write-Host "Registration    : $([bool]$EnableRegistrationTemporarily)"
     if ($EnableRegistrationTemporarily) {
-        Write-Warning 'TEMPORARY REGISTRATION ENABLED: any visitor to the public URL could register until you redeploy with registration disabled.'
+        Write-Warning 'TEMPORARY REGISTRATION ENABLED: only the designated email is accepted. This is not email ownership verification; disable immediately after onboarding.'
     }
 
     $null = Invoke-Checked -Command 'az' -Arguments @('bicep','lint','--file','infra/container-app.bicep') -Description 'Bicep lint'
@@ -200,6 +213,7 @@ try {
     Add-DeploymentParameter $p 'contentUnderstandingEndpoint' $ContentUnderstandingEndpoint
     Add-DeploymentParameter $p 'knowledgeSearchEndpoint' $searchEndpoint
     Add-DeploymentParameter $p 'registrationEnabled' ([bool]$EnableRegistrationTemporarily)
+    Add-DeploymentParameter $p 'registrationAllowedEmail' $DemoAccountEmail
     $parameterFile = Join-Path ([System.IO.Path]::GetTempPath()) ('vibecast-aca-' + [guid]::NewGuid().ToString('N') + '.json')
     try {
         [System.IO.File]::WriteAllText(
@@ -235,6 +249,16 @@ try {
         else {
             Write-Host 'Release tag already exists in ACR; skipping redundant build.'
         }
+
+        # Pin the deployed image to content, even if a registry tag is later changed.
+        $digest = Invoke-Checked -Command 'az' -Arguments @(
+            'acr','repository','show','--name',$registryName,
+            '--image',($ImageRepository + ':' + $tag),'--query','digest','--output','tsv'
+        ) -Description 'resolving the versioned image digest'
+        if ($digest.Trim() -notmatch '^sha256:[a-f0-9]{64}$') { throw 'ACR returned an invalid image digest.' }
+        $p['image'] = @{ value = "$registryLoginServer/$ImageRepository@$($digest.Trim())" }
+        [System.IO.File]::WriteAllText($parameterFile, ($parameters | ConvertTo-Json -Depth 12), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "Deployment image: $($p['image'].value) (release tag $tag)"
 
         Write-Host 'Review the Container App changes (what-if)...'
         $whatIf = Invoke-Checked -Command 'az' -Arguments @(

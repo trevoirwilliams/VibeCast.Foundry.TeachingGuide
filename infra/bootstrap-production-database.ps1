@@ -70,10 +70,13 @@ function Invoke-PsqlFile {
         '--env', 'PGPORT=5432',
         '--env', 'PGSSLMODE=require',
         '--env', 'PGCONNECT_TIMEOUT=10',
+        '--env', 'PGCLIENTENCODING=UTF8',
         $PostgresDockerImage,
         'psql', '--no-psqlrc', '--set', 'ON_ERROR_STOP=1',
         '--no-align', '--tuples-only', '--quiet', '--file', '-'
     )
+    $previousEncoding = $OutputEncoding
+    $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     $output = @()
@@ -82,7 +85,7 @@ function Invoke-PsqlFile {
         $output = @($sql | & docker @argsDocker 2>&1)
         $exitCode = $LASTEXITCODE
     }
-    finally { $ErrorActionPreference = $previous }
+    finally { $ErrorActionPreference = $previous; $OutputEncoding = $previousEncoding }
     $response = (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
     if ($exitCode -ne 0) {
         throw "$Description failed ($exitCode). $response"
@@ -155,7 +158,7 @@ try {
     try {
         $migrationSqlFile = Join-Path $script:workingDir 'migrations.sql'
         $null = Invoke-Checked -Command 'dotnet' -Arguments @(
-            'ef','migrations','script','--idempotent',
+            'ef','migrations','script','0',$expectedMigration,'--idempotent',
             '--project','src/VibeCast.Infrastructure/VibeCast.Infrastructure.csproj',
             '--startup-project','src/VibeCast.Web/VibeCast.Web.csproj',
             '--configuration','Release','--no-build','--output',$migrationSqlFile
@@ -180,6 +183,8 @@ try {
     }
 
     Write-Host "Temporary firewall rule: $firewallName ($publicIp)."
+    Write-Host "Review the generated migration script before approval: $migrationSqlFile"
+    Write-Host "Review policy and grant SQL: $(Join-Path $repoRoot 'infra/seed-production-reference-data.sql') and $(Join-Path $repoRoot 'infra/grant-production-runtime.sql')"
     Write-Host 'Operations: apply pending EF migrations, seed one required policy, grant verified runtime DML privileges.'
     if ((Read-Host 'Type YES to approve PostgreSQL schema and permission changes') -cne 'YES') {
         throw 'Operation cancelled before database changes.'
@@ -236,28 +241,7 @@ WHERE COALESCE(to_jsonb(p)->>'rolname', to_jsonb(p)->>'rolename', '') = '$runtim
     $seedSqlFile = Join-Path $repoRoot 'infra/seed-production-reference-data.sql'
     $null = Invoke-PsqlFile -File $seedSqlFile -Description 'required production reference-data initialization'
 
-    # Avoid granting DML on __EFMigrationsHistory. Runtime roles never
-    # modify migration metadata or own the schema.
-    $grantSql = @'
-GRANT CONNECT ON DATABASE "vibecast" TO "id-vibecast-prod";
-GRANT USAGE ON SCHEMA public TO "id-vibecast-prod";
-DO $runtime_grants$
-DECLARE application_table record;
-BEGIN
-    FOR application_table IN
-        SELECT tablename FROM pg_catalog.pg_tables
-        WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'
-    LOOP
-        EXECUTE format(
-            'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO %I',
-            application_table.tablename, 'id-vibecast-prod');
-    END LOOP;
-END
-$runtime_grants$;
-REVOKE ALL ON TABLE public."__EFMigrationsHistory" FROM "id-vibecast-prod";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "id-vibecast-prod";
-'@
-    $null = Invoke-PsqlText -Sql $grantSql -Description 'runtime DML and sequence grants'
+    $null = Invoke-PsqlFile -File (Join-Path $repoRoot 'infra/grant-production-runtime.sql') -Description 'scoped runtime DML grants'
     $verificationSql = @"
 SELECT CASE WHEN
     to_regclass('public."Episodes"') IS NOT NULL
@@ -268,14 +252,19 @@ SELECT CASE WHEN
     AND NOT has_schema_privilege('$runtimeRole', 'public', 'CREATE')
     AND (
         SELECT count(*) FROM pg_catalog.pg_tables
-        WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory' AND NOT (
+        WHERE schemaname = 'public' AND tablename IN (
+            'AspNetRoles', 'AspNetUsers', 'AspNetRoleClaims', 'AspNetUserClaims',
+            'AspNetUserLogins', 'AspNetUserRoles', 'AspNetUserTokens', 'Episodes',
+            'MediaAssets', 'ProcessingJobs', 'UserProfiles', 'EpisodeSupportingSources') AND NOT (
             has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'SELECT')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'INSERT')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'UPDATE')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'DELETE')
         )
     ) = 0
-    AND NOT has_table_privilege('$runtimeRole', 'public."__EFMigrationsHistory"', 'INSERT')
+    AND NOT has_table_privilege('$runtimeRole', 'public."__EFMigrationsHistory"', 'SELECT,INSERT,UPDATE,DELETE')
+    AND has_table_privilege('$runtimeRole', 'public."EpisodeFormatPolicies"', 'SELECT')
+    AND NOT has_table_privilege('$runtimeRole', 'public."EpisodeFormatPolicies"', 'INSERT,UPDATE,DELETE')
 THEN 'READY' ELSE 'NOT_READY' END;
 "@
     $verification = Invoke-PsqlText -Sql $verificationSql -Description 'runtime grant verification'
@@ -306,6 +295,12 @@ finally {
         }
         else { Write-Host "Removed temporary firewall rule '$firewallName'." }
     }
-    Remove-Item -LiteralPath $script:workingDir -Recurse -Force -ErrorAction SilentlyContinue
+    $cleanupPath = [System.IO.Path]::GetFullPath($script:workingDir)
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if ($cleanupPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+        [System.IO.Path]::GetFileName($cleanupPath).StartsWith('vibecast-bootstrap-')) {
+        Remove-Item -LiteralPath $cleanupPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    else { Write-Warning 'Temporary SQL cleanup path validation failed; no directory was removed.' }
 }
 if (-not $cleanupVerified) { throw 'Database operations completed but temporary firewall cleanup could not be verified.' }

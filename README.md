@@ -36,7 +36,7 @@ The deployment script prompts for required nonsecret endpoints and deployment na
 
 The release is complete only after the app returns healthy over HTTPS, an intended demo account can sign in, and a newly created episode remains in PostgreSQL after reload and reauthentication. The deployment script cannot automate the authenticated episode smoke test; complete it manually before recording the success checkpoint.
 
-Public registration is **disabled by default**. To prepare an initial demo account, the deployment script supports an explicitly approved temporary registration mode that must be disabled immediately afterward.
+Public registration is **disabled by default**. To prepare an initial demo account, the deployment script supports an explicitly approved temporary registration mode restricted to `-DemoAccountEmail` that must be disabled immediately afterward. No demo password is accepted by the scripts or stored in source.
 
 The initial app uses **min 0 / max 1** replicas to minimize idle compute costs. Cold starts are expected; in-memory background jobs are not durable. Persistent data is stored outside the container.
 
@@ -45,3 +45,6 @@ The initial app uses **min 0 / max 1** replicas to minimize idle compute costs. 
 Full Foundry model inference, Speech/Content Understanding, Blob read/write/delete, Foundry IQ retrieval, OpenTelemetry export to Application Insights, rollbacks, and CI/CD deployment are addressed in subsequent Section 9 lessons. Local Aspire remains supported by the previous teaching branches and AppHost.
 
 For technical policy and migration constraints, see the checked-in `.github/instructions` and [Microsoft Learn: Azure Container Apps](https://learn.microsoft.com/azure/container-apps/dotnet-overview).
+
+
+Local validation: Release build, 23 .NET tests, Bicep compilation, PowerShell parsing, EF model verification, and isolated PostgreSQL idempotency/permission tests passed. See the setup guide for precise unverified Azure steps and required live approvals.

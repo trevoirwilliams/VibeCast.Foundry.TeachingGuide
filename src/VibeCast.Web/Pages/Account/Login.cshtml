@@ -25,7 +25,8 @@
   <button type="submit" class="btn btn-primary w-100">Sign in</button>
 </form>
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
-@if (Configuration.GetValue<bool>("Registration:Enabled"))
+@inject Microsoft.Extensions.Hosting.IHostEnvironment HostEnvironment
+@if (VibeCast.Web.Security.RegistrationAccess.IsOpen(Configuration, HostEnvironment))
 {
   <p class="mt-3 mb-0">Need an account? <a href="/Account/Register">Register</a>.</p>
 }

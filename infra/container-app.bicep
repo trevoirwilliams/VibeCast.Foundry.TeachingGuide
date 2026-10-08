@@ -37,6 +37,8 @@ param knowledgeSearchEndpoint string
 
 @description('Explicit temporary access to self-registration. Keep false for the published demo.')
 param registrationEnabled bool = false
+@description('Single temporary demo email permitted to register. No password; clear after onboarding.')
+param registrationAllowedEmail string = ''
 @minValue(0)
 @maxValue(1)
 @description('Minimum replicas. Zero permits cold starts and stops idle compute billing.')
@@ -85,6 +87,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ASPNETCORE_HTTP_PORTS', value: '8080' }
             { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
             { name: 'Registration__Enabled', value: string(registrationEnabled) }
+            { name: 'Registration__AllowedEmail', value: registrationAllowedEmail }
             { name: 'ConnectionStrings__VibeCast', value: postgresConnectionString }
             { name: 'AzureIdentity__ManagedIdentityClientId', value: runtimeIdentityClientId }
             { name: 'MediaStorage__ServiceUri', value: storageServiceUri }

@@ -35,7 +35,7 @@ The script:
 4. Uses the signed-in PostgreSQL **Microsoft Entra administrator** and a short-lived access token with Docker `postgres:18` / `psql`.
 5. Verifies the existing runtime role's Entra principal ID.
 6. Applies the EF Core schema, verifies migration `20261001044539_InitialPostgreSql`, and seeds the *required* default episode-format policy.
-7. Grants least-privilege runtime table/sequence DML and confirms no schema `CREATE` privilege.
+7. Grants DML only on the explicit application/Identity tables and the two claims sequences; grants read-only policy access, excludes migration history, and confirms no schema `CREATE` privilege.
 8. Restores the token environment and removes the temporary firewall rule in `finally`.
 
 Review the generated SQL and intended operations before entering `YES`. If a cleanup warning occurs, follow the printed exact firewall-rule delete command. No demo users or sample episodes are seeded. Re-running the script preserves preexisting data and is intended to be safe; investigate any reported schema drift rather than resetting the database.
@@ -46,7 +46,7 @@ Review the generated SQL and intended operations before entering `YES`. If a cle
 .\infra\deploy-vibecast-containerapp.ps1 -DatabaseBootstrapVerified
 ```
 
-The script prompts for **non-secret**, existing Foundry chat/image deployment names and Foundry, Speech, and Content Understanding endpoints if they are not passed as parameters or provided in environment variables. It discovers the Container Apps environment, Azure Container Registry, managed identity, PostgreSQL connection configuration, Blob storage URIs, Key Vault key ID, and the existing `vibecast-search` endpoint. It requires a clean Git working tree, uses the current 12-character commit SHA as the release tag, validates/builds the Bicep, performs a Release build and tests, and uses `az acr build` to publish to the registry only if that immutable tag is absent.
+The script prompts for **non-secret**, existing Foundry chat/image deployment names and Foundry, Speech, and Content Understanding endpoints if they are not passed as parameters or provided in environment variables. It discovers the Container Apps environment, Azure Container Registry, managed identity, PostgreSQL connection configuration, Blob storage URIs, Key Vault key ID, and the existing `vibecast-search` endpoint. It requires a clean Git working tree, uses the current 12-character commit SHA as the release tag, validates/builds the Bicep, performs a Release build and tests, and uses `az acr build` to publish to the registry only if that commit tag is absent. It resolves the tag to a SHA-256 digest and deploys the digest reference so later tag changes cannot alter the selected image.
 
 It then shows `az deployment group what-if` for `infra/container-app.bicep`, asks for explicit deployment approval, deploys, and checks public `/health` and `/Account/Login`. It does **not** silently recreate the foundation or apply schema changes.
 
@@ -59,12 +59,13 @@ Public self-registration is **disabled by default in Production**. No account pa
 For the initial lesson demonstration only, temporarily permit registration by running:
 
 ```powershell
-.\infra\deploy-vibecast-containerapp.ps1 -DatabaseBootstrapVerified -EnableRegistrationTemporarily
+$demoEmail = Read-Host 'Designated nonproduction demo email'
+.\infra\deploy-vibecast-containerapp.ps1 -DatabaseBootstrapVerified -EnableRegistrationTemporarily -DemoAccountEmail $demoEmail
 ```
 
 Open the public URL printed by the script, visit `/Account/Register`, and register an account using a nonproduction email address and a unique password. **Immediately** rerun the standard deployment command without the registration switch and verify `/Account/Register` returns HTTP **404**. Do not display the registration password in the recording.
 
-The temporary public registration toggle is a deliberate, explicitly approved exposure window; do not use this pattern as a production user-invitation or identity-verification system.
+Temporary registration fails closed without an allowed email and accepts only that email (case-insensitive). ASP.NET Core Identity prevents a second account with the same normalized email. This does not verify email ownership: keep the exposure window brief and disable registration immediately. Do not use this pattern as a permanent invitation system.
 
 ### 4. Record the initial hosted smoke test
 
@@ -127,3 +128,20 @@ Proposed 12-minute recording: 45 seconds objective, 1 minute prerequisite state,
 - [Container Apps health probes](https://learn.microsoft.com/azure/container-apps/health-probes)
 - [Blazor hosting in Azure Container Apps](https://learn.microsoft.com/aspnet/core/blazor/host-and-deploy/server/?view=aspnetcore-10.0#azure-container-apps)
 - [Apply EF Core migrations in production](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying)
+
+## Verification status — 8 October 2026
+
+Local Release build and 23 deterministic .NET tests passed. Bicep compilation/lint and PowerShell parsing passed. EF reports no pending model changes. The optional local PostgreSQL regression below passed against PostgreSQL 18, including two migration/seed/grant runs, preserved administrator edits, working claims-sequence DML, and denied schema/policy/migration-history writes. Existing compiler warnings in AI/UI code remain outside this deployment change.
+
+```powershell
+# Requires the Release build, dotnet-ef 10.0.12 and local Docker; makes no Azure calls.
+.\scripts\test-production-database.ps1
+```
+
+**Not verified live:** Azure tenant/subscription access; foundation deployment outputs; Entra administrator access and identity mapping; database firewall/network paths from the workstation and Container Apps; runtime service RBAC and ACR ARM-token authentication; ACR Tasks build; Bicep what-if/validation and deployment; hosted probes, forwarded HTTPS/secure cookies and key-ring access; demo onboarding/registration closure; authenticated login and saved-episode persistence. No Azure mutation, billable build, or deployment was executed for this verification. Approve database changes, image publication, and app deployment separately when running the scripts.
+
+The cloud forwarding flag trusts ingress-provided forwarding headers. This checkpoint relies on HTTP Container Apps ingress being the only external route to port 8080: Container Apps overwrites `X-Forwarded-Proto`, and the default one-hop processing avoids trusting arbitrary earlier client IP entries. Do not expose the container port directly outside that boundary. Production authentication and antiforgery cookies require HTTPS. Direct HTTP probes bypass redirection and return the health handler's status. Liveness/readiness in this lesson remain application/self checks, not external dependency readiness.
+
+- [Container Apps ingress and forwarded header behavior](https://learn.microsoft.com/azure/container-apps/ingress-overview)
+- [ASP.NET Core forwarding configuration and trust boundary](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)
+- [PostgreSQL Microsoft Entra authentication](https://learn.microsoft.com/azure/postgresql/security/security-entra-configure)

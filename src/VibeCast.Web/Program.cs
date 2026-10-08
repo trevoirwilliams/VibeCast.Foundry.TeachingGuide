@@ -69,6 +69,17 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LoginPath = "/Account/Login";
     options.LogoutPath = "/Account/Logout";
     options.AccessDeniedPath = "/access-denied";
+    if (builder.Environment.IsProduction())
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+});
+builder.Services.AddAntiforgery(options =>
+{
+    if (builder.Environment.IsProduction())
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
 });
 
 builder.Services.AddVibeCastInfrastructure(
@@ -101,7 +112,10 @@ if(app.Environment.IsDevelopment())
     await SeedData.InitializeAsync(scope.ServiceProvider);
 }
 
-app.UseHttpsRedirection();
+// Container Apps probes call the container over HTTP, without forwarded headers.
+// Serve their status directly; ingress still enforces HTTPS for public access.
+app.UseWhen(context => context.Request.Path != "/health" && context.Request.Path != "/alive",
+    branch => branch.UseHttpsRedirection());
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -8,3 +8,8 @@ TestResults
 artifacts
 .vibecast
 *.db
+**/appsettings.Local*.json
+**/.env*
+**/secrets.json
+**/*.pfx
+**/*.pem

@@ -3,23 +3,25 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using VibeCast.Infrastructure.Data;
+using VibeCast.Web.Security;
 
 namespace VibeCast.Web.Pages.Account;
 
-public sealed class RegisterModel(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration) : PageModel
+public sealed class RegisterModel(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IHostEnvironment environment) : PageModel
 {
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
     // Registration is disabled by default on the public Production endpoint.
     public IActionResult OnGet() =>
-        configuration.GetValue<bool>("Registration:Enabled")
+        RegistrationAccess.IsOpen(configuration, environment)
             ? Page()
             : NotFound();
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (!configuration.GetValue<bool>("Registration:Enabled"))
+        if (!RegistrationAccess.IsOpen(configuration, environment) ||
+            !RegistrationAccess.AllowsEmail(configuration, environment, Input.Email))
         {
             return NotFound();
         }
