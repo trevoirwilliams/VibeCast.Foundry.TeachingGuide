@@ -29,5 +29,29 @@ jobs:
             --startup-project src/VibeCast.Web/VibeCast.Web.csproj \
             --configuration Release \
             --no-build
+      - name: Validate deployment Bicep
+        shell: bash
+        run: |
+          if [ -f infra/container-app.bicep ]; then
+            az bicep build --file infra/container-app.bicep --stdout > /dev/null
+          fi
+      - name: Parse deployment PowerShell scripts
+        shell: pwsh
+        run: |
+          $scripts = @(
+            'infra/bootstrap-production-database.ps1',
+            'infra/deploy-vibecast-containerapp.ps1'
+          )
+          foreach ($script in $scripts) {
+            if (-not (Test-Path $script)) { continue }
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script).Path, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$script : $_" }
+              throw "PowerShell parser found $($errors.Count) errors in $script"
+            }
+          }
       - name: Test
         run: dotnet test VibeCast.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
