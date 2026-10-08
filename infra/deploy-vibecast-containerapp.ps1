@@ -213,11 +213,18 @@ try {
         }
 
         # ACR Tasks builds from this clean checkout without embedding developer secrets.
-        $existingTag = Invoke-Checked -Command 'az' -Arguments @(
-            'acr','repository','show-tags','--name',$registryName,
-            '--repository',$ImageRepository,'--query',"[?@=='$tag'] | length(@)",
-            '--output','tsv'
-        ) -Description 'checking existing release image tags'
+        $existingRepo = Invoke-Checked -Command 'az' -Arguments @(
+            'acr','repository','list','--name',$registryName,
+            '--query',"[?@=='$ImageRepository'] | length(@)",'--output','tsv'
+        ) -Description 'checking whether the image repository exists'
+        $existingTag = '0'
+        if ($existingRepo.Trim() -ne '0') {
+            $existingTag = Invoke-Checked -Command 'az' -Arguments @(
+                'acr','repository','show-tags','--name',$registryName,
+                '--repository',$ImageRepository,
+                '--query',"[?@=='$tag'] | length(@)",'--output','tsv'
+            ) -Description 'checking existing release image tags'
+        }
         if ($existingTag.Trim() -eq '0') {
             $null = Invoke-Checked -Command 'az' -Arguments @(
                 'acr','build','--registry',$registryName,
