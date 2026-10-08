@@ -120,8 +120,8 @@ $script:pgDatabase = Get-OutputValue -Outputs $outputs -Name 'postgresDatabase'
 $expectedPrincipalId = Get-OutputValue -Outputs $outputs -Name 'runtimeIdentityPrincipalId'
 $pgServerId = Get-OutputValue -Outputs $outputs -Name 'postgresServerId'
 $pgServerName = $pgServerId.Split('/')[-1]
-if ($script:pgDatabase -notmatch '^[a-zA-Z][a-zA-Z0-9_]*$') {
-    throw 'Unexpected PostgreSQL database identifier.'
+if ($script:pgDatabase -ne 'vibecast') {
+    throw 'Unexpected PostgreSQL database name; expected the dedicated vibecast database.'
 }
 try { $null = [guid]::Parse($expectedPrincipalId) }
 catch { throw 'Invalid managed identity principal ID from Bicep.' }
@@ -236,16 +236,27 @@ WHERE COALESCE(to_jsonb(p)->>'rolname', to_jsonb(p)->>'rolename', '') = '$runtim
     $seedSqlFile = Join-Path $repoRoot 'infra/seed-production-reference-data.sql'
     $null = Invoke-PsqlFile -File $seedSqlFile -Description 'required production reference-data initialization'
 
-    $grantSql = @"
-GRANT CONNECT ON DATABASE "$script:pgDatabase" TO "$runtimeRole";
-GRANT USAGE ON SCHEMA public TO "$runtimeRole";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "$runtimeRole";
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "$runtimeRole";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "$runtimeRole";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO "$runtimeRole";
-"@
+    # Avoid granting DML on __EFMigrationsHistory. Runtime roles never
+    # modify migration metadata or own the schema.
+    $grantSql = @'
+GRANT CONNECT ON DATABASE "vibecast" TO "id-vibecast-prod";
+GRANT USAGE ON SCHEMA public TO "id-vibecast-prod";
+DO $runtime_grants$
+DECLARE application_table record;
+BEGIN
+    FOR application_table IN
+        SELECT tablename FROM pg_catalog.pg_tables
+        WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory'
+    LOOP
+        EXECUTE format(
+            'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO %I',
+            application_table.tablename, 'id-vibecast-prod');
+    END LOOP;
+END
+$runtime_grants$;
+REVOKE ALL ON TABLE public."__EFMigrationsHistory" FROM "id-vibecast-prod";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "id-vibecast-prod";
+'@
     $null = Invoke-PsqlText -Sql $grantSql -Description 'runtime DML and sequence grants'
     $verificationSql = @"
 SELECT CASE WHEN
@@ -257,13 +268,14 @@ SELECT CASE WHEN
     AND NOT has_schema_privilege('$runtimeRole', 'public', 'CREATE')
     AND (
         SELECT count(*) FROM pg_catalog.pg_tables
-        WHERE schemaname = 'public' AND NOT (
+        WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory' AND NOT (
             has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'SELECT')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'INSERT')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'UPDATE')
             AND has_table_privilege('$runtimeRole', format('%I.%I', schemaname, tablename), 'DELETE')
         )
     ) = 0
+    AND NOT has_table_privilege('$runtimeRole', 'public."__EFMigrationsHistory"', 'INSERT')
 THEN 'READY' ELSE 'NOT_READY' END;
 "@
     $verification = Invoke-PsqlText -Sql $verificationSql -Description 'runtime grant verification'
