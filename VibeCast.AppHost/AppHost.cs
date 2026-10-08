@@ -30,13 +30,19 @@ var contentUnderstandingApiKey = builder.AddParameter("content-understanding-api
         secret: true);
 var knowledgeStorageServiceUri = builder.AddParameter("knowledge-storage-service-uri");
 var knowledgeSearchEndpoint = builder.AddParameter("knowledge-search-endpoint");
-
 var azureTenantId = builder.AddParameter("azure-tenant-id");
-
 var azureClientId = builder.AddParameter("azure-client-id");
-
 var azureClientSecret = builder.AddParameter("azure-client-secret",
         secret: true);
+
+/*
+ Use for local debugging with Visual Studio. This will run the application in a container and attach the debugger to it.
+builder.AddProject<Projects.VibeCast_Web>("vibecast-web")
+
+Use for full containerization and deployment. This will build the application from the Dockerfile and run it in a container.
+builder.AddDockerfile("vibecast-web", "..")
+    .WithHttpEndpoint(port: 8080, targetPort: 8080, name: "http")
+ */
 
 builder.AddDockerfile("vibecast-web", "..")
     .WithHttpEndpoint(port: 8080, targetPort: 8080, name: "http")
