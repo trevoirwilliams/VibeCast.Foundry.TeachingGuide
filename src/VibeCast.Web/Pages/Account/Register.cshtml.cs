@@ -6,13 +6,24 @@ using VibeCast.Infrastructure.Data;
 
 namespace VibeCast.Web.Pages.Account;
 
-public sealed class RegisterModel(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager) : PageModel
+public sealed class RegisterModel(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration) : PageModel
 {
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
+    // Registration is disabled by default on the public Production endpoint.
+    public IActionResult OnGet() =>
+        configuration.GetValue<bool>("Registration:Enabled")
+            ? Page()
+            : NotFound();
+
     public async Task<IActionResult> OnPostAsync()
     {
+        if (!configuration.GetValue<bool>("Registration:Enabled"))
+        {
+            return NotFound();
+        }
+
         if (!ModelState.IsValid) return Page();
 
         var user = new ApplicationUser
