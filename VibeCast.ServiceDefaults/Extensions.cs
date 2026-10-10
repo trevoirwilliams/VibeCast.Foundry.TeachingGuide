@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,10 @@ public static class Extensions
         this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
+        string? insightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+
+        string? otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
@@ -79,9 +84,14 @@ public static class Extensions
                         .AddHttpClientInstrumentation();
                 });
 
-        if (!string.IsNullOrWhiteSpace(
-                builder.Configuration[
-                    "OTEL_EXPORTER_OTLP_ENDPOINT"]))
+        if (builder.Environment.IsProduction() && !string.IsNullOrWhiteSpace(insightsConnectionString))
+        {
+            openTelemetry.UseAzureMonitorExporter(options =>
+            {
+                options.ConnectionString = insightsConnectionString;
+            });
+        }
+        else if (!string.IsNullOrWhiteSpace(otlpEndpoint))
         {
             openTelemetry.UseOtlpExporter();
         }

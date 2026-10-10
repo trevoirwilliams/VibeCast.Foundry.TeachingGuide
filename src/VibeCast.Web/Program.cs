@@ -17,6 +17,15 @@ using VibeCast.Web.Security;
 using VibeCast.Web.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.SingleLine = true;
+    options.TimestampFormat = "HH:mm:ss ";
+});
+
 builder.AddServiceDefaults();
 
 if (builder.Environment.IsDevelopment())
@@ -30,14 +39,6 @@ TokenCredential azureCredential = AzureCredentialFactory.Create(
         builder.Environment);
 
 builder.Services.AddSingleton(azureCredential);
-
-builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(options =>
-{
-    options.IncludeScopes = true;
-    options.SingleLine = true;
-    options.TimestampFormat = "HH:mm:ss ";
-});
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
