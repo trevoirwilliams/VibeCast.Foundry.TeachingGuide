@@ -18,4 +18,7 @@
     <PackageReference Include="Aspire.Hosting.Azure.Storage" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\src\VibeCast.Web\VibeCast.Web.csproj" />
+  </ItemGroup>
 </Project>

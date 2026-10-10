@@ -10,6 +10,5 @@ public sealed class ContentUnderstandingOptions
     [Url]
     public string Endpoint { get; init; } = string.Empty;
 
-    [Required]
-    public string ApiKey { get; init; } = string.Empty;
+    public string? ApiKey { get; init; }
 }

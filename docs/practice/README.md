@@ -6,7 +6,24 @@ Use the root [README](../../README.md) for this branch's setup and pinned packag
 
 Watch the feature explanation, pause before the implementation, and try the matching task. If you have already watched it, attempt the task before opening the solution. Read the numbered comments first; expand an optional hint only when you need it. You may ask Copilot to explain one unfamiliar API or failed check.
 
-Search for `PRACTICE S` in C# files. Each named `NotImplementedException` is an intentional gap. Replace it with real behavior, not dummy output. Task-returning stubs omit `async`; add it when using `await`. Streaming tasks need an async iterator, `yield return` and the cancellation attribute described in their hints.
+Search for `PRACTICE S` in C# files. Each named `NotImplementedException` is an intentional gap. Replace it with real behavior, not dummy output. Task-returning storage stubs omit `async`; add it when using `await`. The other gaps configure existing builders or return clients; their comments identify which.
+
+This branch includes the supporting production code from Complete at `c2815618038f285631c54fee3a5e42ce80e7b66f`. Production identity selection and AI client authentication are supplied, not additional identity lessons. Use the published Udemy lesson titles below.
+
+Complete S09-04, S09-05A and S09-06 before starting the full local app. S09-01 to S09-03 are needed for media operations. S09-05B and S09-07 apply to Production. An exception naming one of these unfinished tasks is expected until you implement it.
+
+| Published lesson | Activity |
+|---|---|
+| Clean Up and Stabilize for Production | Inspect the supplied provider → resilience → logging chain and shared telemetry registration. |
+| Move Relational Data to PostgreSQL for Production | S09-04: configure the local provider; keep the supplied PostgreSQL migrations. |
+| Implement Azurite for Development File Storage | S09-01 to S09-03: implement media upload, read and delete. |
+| Complete Azurite Implementation and Test | S09-05: configure Data Protection persistence and protection; verify storage. |
+| Normalize Container Configurations and Run Locally | S09-06: select the media client; configure AppHost parameters and inspect the correct container. |
+| Provision Azure Infrastructure | Apply the published lesson's resource setup; no additional C# gap. |
+| Publish and Deploy VibeCast to Azure Container Apps | Use the completed app and supply production configuration; verify an actual application operation. |
+| Add Application Insights and Production Health Monitoring | S09-07: configure the production exporter; verify a request trace and health separately. |
+
+The uploaded identity recordings are not listed as separate published lessons in the reviewed curriculum, so their plumbing remains supplied. Provisioning/deployment transcript filenames do not establish a match to the published videos; this update does not invent scripts or exact pause times for them.
 
 Save or commit your work before switching branches. Each section starts independently; your unfinished code does not carry forward automatically.
 
@@ -42,7 +59,7 @@ Use Path.GetFileName/Path.GetExtension and Helpers.BuildOwnerKey(ownerId). The k
 ### S09-02: OpenReadAsync
 
 - **File:** [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
-- **Attempt before:** **Complete Azurite Implementation and Test**.
+- **Attempt before:** the matching method is demonstrated in **Implement Azurite for Development File Storage**; check the result during **Complete Azurite Implementation and Test**.
 - **Already provided / prerequisites:** The container client and SafeApplicationException are supplied.
 
 1. Resolve a blob client from the supplied storage key.
@@ -69,7 +86,7 @@ Use containerClient.GetBlobClient, BlobOpenReadOptions(allowModifications: false
 ### S09-03: DeleteAsync
 
 - **File:** [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](../../src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs)
-- **Attempt before:** **Complete Azurite Implementation and Test**.
+- **Attempt before:** the matching method is demonstrated in **Implement Azurite for Development File Storage**; check the result during **Complete Azurite Implementation and Test**.
 - **Already provided / prerequisites:** The container client and safe application error type are supplied.
 
 1. Resolve a blob client from the storage key.
@@ -91,40 +108,113 @@ Use DeleteIfExistsAsync with DeleteSnapshotsOption.IncludeSnapshots, null condit
 
 **Explain:** Why is an idempotent delete useful when cleanup is retried?
 
+<a id="s09-04-postgresql"></a>
+### S09-04: Configure PostgreSQL
+
+- **File:** [DependencyInjection.cs](../../src/VibeCast.Infrastructure/DependencyInjection.cs)
+- **Lesson:** **Move Relational Data to PostgreSQL for Production**.
+- **Supplied:** AppHost database provisioning, connection-string validation, the design-time factory, PostgreSQL migrations and production Entra authentication.
+
+Configure the options inside the non-production DbContext factory callback. Use the supplied connection string and PostgreSQL provider; do not return a context or hardcode a password.
+
+<details>
+<summary>Optional API hint</summary>
+
+Call UseNpgsql on the supplied options builder with connectionString. AddDbContextFactory already defines the factory registration. The design-time factory is a separate, supplied path used by EF tooling.
+
+</details>
+
+**Check:** After the other local startup gaps are complete, start AppHost, sign in and save an episode. Restart the resources without deleting volumes and confirm the episode remains. Retain the existing migrations: the recording's deletion of SQLite migrations was a one-time provider transition already reflected here.
+
+**Explain:** Why does the runtime need AppHost configuration even when EF can construct a context at design time?
+
+<a id="s09-05-data-protection"></a>
+### S09-05: Persist and protect Data Protection keys
+
+- **File:** [DataProtectionExtensions.cs](../../src/VibeCast.Web/Security/DataProtectionExtensions.cs)
+- **Lesson:** **Complete Azurite Implementation and Test**.
+- **Supplied:** Application name, environment guards, URI validation, credential, and development container/blob creation.
+
+**Part A (Development):** In the existing persistence callback, resolve the keyed container and return the BlobClient selected by options.BlobName. Do not upload or download the key ring yourself here.
+
+**Part B (Production):** Configure the existing dataProtection builder to persist at blobUri, then protect the keys using keyIdentifier. Both calls use azureCredential. The method itself returns void.
+
+<details>
+<summary>Optional API hint</summary>
+
+Part A: GetRequiredKeyedService&lt;BlobContainerClient&gt;(ContainerClientKey), then GetBlobClient(options.BlobName).
+
+Part B: PersistKeysToAzureBlobStorage(blobUri, azureCredential), then ProtectKeysWithAzureKeyVault(keyIdentifier, azureCredential).
+
+</details>
+
+**Check locally:** In Storage Explorer, inspect vibecast-dataprotection/keys.xml after signing in. Restart the application without clearing its storage and confirm the existing key ring remains usable.
+
+**Check in Azure:** With the production identity permissions configured, verify that the key-ring blob persists across a restart and the application can still use it. This requires real Azure resources; Azurite does not emulate Key Vault.
+
+**Explain:** Blob Storage persists the application's key ring; Key Vault protects those keys. Neither location is the media-upload container.
+
+<a id="s09-06-media-client"></a>
+### S09-06: Select the media container
+
+- **File:** [DependencyInjection.cs](../../src/VibeCast.Infrastructure/DependencyInjection.cs)
+- **Lesson:** **Normalize Container Configurations and Run Locally**.
+- **Supplied:** Development and production keyed client registrations; the unkeyed knowledge container.
+
+Inside the IBlobStorage factory, resolve the media container and logger, then return an AzureBlobStorage instance. Keep the service key "media"; using the unkeyed client can send uploads to knowledge storage.
+
+<details>
+<summary>Optional API hint</summary>
+
+Resolve GetRequiredKeyedService&lt;BlobContainerClient&gt;("media") and GetRequiredService&lt;ILogger&lt;AzureBlobStorage&gt;&gt;(), then pass both to the AzureBlobStorage constructor. Return the storage implementation, not the container client.
+
+</details>
+
+**Check:** Upload a file and inspect vibecast-media in Storage Explorer. Its key should be owners/{ownerKey}/media/{generated-name}. A successful UI upload alone does not prove it reached the correct container.
+
+**Explain:** Why can the wrong container registration produce a successful upload rather than an exception?
+
+<a id="s09-07-telemetry"></a>
+### S09-07: Export production telemetry
+
+- **File:** [Extensions.cs](../../VibeCast.ServiceDefaults/Extensions.cs)
+- **Lesson:** **Add Application Insights and Production Health Monitoring**.
+- **Supplied:** Instrumentation, application activity sources, Production/configuration checks, local OTLP fallback, and health endpoints.
+
+Inside the Production branch, add the Azure Monitor exporter to the existing openTelemetry builder and configure its connection string. Keep one telemetry pipeline.
+
+<details>
+<summary>Optional API hint</summary>
+
+UseAzureMonitorExporter accepts an options callback. Set its ConnectionString from insightsConnectionString. The environment condition and UseOtlpExporter fallback are already implemented.
+
+</details>
+
+**Check locally:** Aspire continues receiving telemetry through the supplied OTLP configuration.
+
+**Check in Azure:** Configure APPLICATIONINSIGHTS_CONNECTION_STRING, trigger a normal application operation, and inspect its trace in Application Insights. Separately request /health and /alive. These paths are excluded from request tracing and currently only exercise the application's self-check; they do not prove database, storage or AI access.
+
+**Explain:** Why is a successful health response insufficient evidence that an AI request works?
+
 ## Storage roundtrip
 
-Use the configured Azurite instance: save a short known byte sequence, check StoredBlob metadata, open and read it, dispose the returned stream, delete it, and delete again. These storage checks do not need a live AI call. Running the full application may still require the other registered service settings described in the root README.
+Use the configured Azurite instance: save a short known byte sequence, check StoredBlob metadata, open and read it, dispose the returned stream, delete it, and delete again. Verify different owners use different key prefixes. These storage operations do not require an AI call; starting the full application still needs its registered service configuration.
 
-This checkpoint covers PostgreSQL, Azurite and local containers. It does not represent a completed hosted Azure deployment.
-
-## Run checks in the appropriate environment
-
-The domain and application test projects can run independently:
-
-```bash
-dotnet test tests/VibeCast.Domain.Tests/VibeCast.Domain.Tests.csproj --configuration Release
-dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release
-```
-
-The full-solution command also runs HealthEndpointTests, which starts the web host. That host needs its PostgreSQL and keyed blob-container connection strings, other required option values, and reachable local services. Use the AppHost setup in the root README to supply those dependencies. A missing PostgreSQL connection string is a host-configuration failure, not evidence that your storage implementation is wrong. Do not remove the integration test or bypass startup validation to make it pass.
-
-## Build, compare and review
+## Build and check
 
 ```bash
 dotnet restore VibeCast.sln
 dotnet build VibeCast.sln --configuration Release --no-restore
-dotnet test VibeCast.sln --configuration Release --no-build
+dotnet test tests/VibeCast.Domain.Tests/VibeCast.Domain.Tests.csproj --configuration Release --no-build
+dotnet test tests/VibeCast.Application.Tests/VibeCast.Application.Tests.csproj --configuration Release --no-build
 ```
 
-An intentional exercise exception is expected when an unfinished path runs; a compiler error is not the exercise. Some tests cover other gaps, so use a focused filter where supplied. The examples above are acceptance checks, not a claim that every case has an automated test. Use local fakes for deterministic model responses; use the configured storage emulator for storage integration.
+A successful build checks the scaffold's syntax; the existing domain/application tests do not verify these storage and deployment exercises. Use the task-specific checks above after implementation.
 
-After your attempt, compare the relevant method with the [pinned reference solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/96a17cfb477d9ecee0860b6461e44144a222bb6a). Explain behavioral differences instead of matching every line. Change one input, predict the result, then check your prediction.
+The full-solution test command also starts HealthEndpointTests. Its existing fixture does not provision PostgreSQL/Azurite or inject their configuration. Starting AppHost separately does not automatically configure that test host. The inspected Complete checkpoint's CI fails there for a missing PostgreSQL connection string. Do not remove validation or comment out tests to hide this failure.
 
-<details>
-<summary>Instructor validation status</summary>
+## Compare after your attempt
 
-Checked on 2026-10-06: The scaffold Release build, migration check and 16 domain/application tests passed in GitHub Actions. The health integration test requires PostgreSQL and storage configuration and did not pass in the unconfigured CI host. This is separate from S09-01 to S09-03.
+Compare the relevant block with the [pinned Complete checkpoint](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/c2815618038f285631c54fee3a5e42ce80e7b66f). All seven exercises fit into the same methods or callbacks as the reference. Explain behavioral differences instead of matching formatting. Preserve your work before switching branches.
 
-[Scaffold CI run](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/actions/runs/37504000424). A restored-solution test run and live cloud checks have not been performed for this revision. Those are still needed before claiming that every completed exercise is verified. Lesson references use titles; exact transcript pause times remain unverified.
-
-</details>
+Production identity, cloud AI client registrations and the initial schema SQL are supplied to match that checkpoint. The schema must be applied separately in Production; startup migration and seeding are Development-only. The repository snapshot does not include the infrastructure assets shown in every recording. This practice update covers the application code and does not establish a verified Azure deployment.

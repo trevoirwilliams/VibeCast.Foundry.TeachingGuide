@@ -1,36 +1,33 @@
-# VibeCast — Deploy the AI-Enabled .NET Application to Azure
+# VibeCast — Section 9 backend practice
 
-**Branch:** `section-09-prod-prep-practice`  
-**Checkpoint:** Backend practice — instructor review draft
+**Branch:** `section-09-prod-prep-practice`
 
-Move the application's relational and file storage to PostgreSQL and Blob Storage, then run the application locally in containers.
+**Target:** [Section 9 Complete at c281561](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/c2815618038f285631c54fee3a5e42ce80e7b66f)
 
-## What this checkpoint contains
+Practice the backend changes from the published **Deploy the AI-Enabled .NET Application to Azure** section. Supporting code matches the target checkpoint; seven exercises leave selected implementation blocks for you to complete.
 
-The AI features and Section 8 engineering checkpoint are supplied; the starting checkpoint still uses SQLite and LocalBlobStorage for media.
+Start with the [practice guide](docs/practice/README.md). Search C# files for `PRACTICE S09-`. Each gap states the required sequence, expected result and an optional hint. The scaffold should compile; named `NotImplementedException` failures identify unfinished work.
 
-This branch imports the completed section's supporting UI, contracts and configuration, then leaves **3 backend tasks** intentionally unfinished. Open [PRACTICE.md](PRACTICE.md) and the [task guide](docs/practice/README.md) before running a target feature. Named `NotImplementedException` failures identify work to implement; the branch is not a finished application release.
+## Activities and lesson order
 
-## Lesson and code map
+| Published lesson | Student activity |
+|---|---|
+| Clean Up and Stabilize for Production | Inspect the supplied resilience/logging chain and shared telemetry registration. |
+| Move Relational Data to PostgreSQL for Production | **S09-04:** configure the local PostgreSQL options callback. |
+| Implement Azurite for Development File Storage | **S09-01–03:** save, open and delete media blobs. |
+| Complete Azurite Implementation and Test | **S09-05A/B:** select the development key-ring blob; configure production persistence and Key Vault protection. |
+| Normalize Container Configurations and Run Locally | **S09-06:** resolve the keyed media container; configure AppHost and inspect uploaded files. |
+| Provision Azure Infrastructure | Follow the published provisioning activity using your Azure resources. |
+| Publish and Deploy VibeCast to Azure Container Apps | Configure the completed application for Production and verify its behavior. |
+| Add Application Insights and Production Health Monitoring | **S09-07:** connect the production exporter and verify traces separately from health. |
 
-| Current Udemy lesson | Relevant code in this checkpoint | Engineering objective |
-|---|---|---|
-| Move Relational Data to PostgreSQL for Production | [src/VibeCast.Infrastructure/DependencyInjection.cs](src/VibeCast.Infrastructure/DependencyInjection.cs) | Replace the SQLite provider with the PostgreSQL configuration in this section. |
-| Implement Azurite for Development File Storage | [src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs](src/VibeCast.Infrastructure/Storage/AzureBlobStorage.cs) | Implement the media storage abstraction over Blob Storage. |
-| Complete Azurite Implementation and Test | [VibeCast.AppHost/AppHost.cs](VibeCast.AppHost/AppHost.cs) | Connect the local emulator and verify media roundtrips. |
-| Normalize Container Configurations and Run Locally | [Dockerfile](Dockerfile) | Run the container with AppHost-provided database, storage and configuration. |
+S09-01–03 keep their original IDs for existing students. Complete **S09-04, S09-05A and S09-06** before launching the full local app; implement the storage methods before uploading media. S09-05B and S09-07 are Production-only gaps.
 
-The map follows the live Udemy lesson titles and inspected code. Lecture numbers can change when practice articles are inserted. Exact spoken sequencing and timestamps have not been verified against the reattached transcript archive.
+## Local setup
 
-## Setup for this branch
+Use **.NET 10 / C# 14**, the committed package versions and a Docker-compatible runtime. [AppHost](VibeCast.AppHost/AppHost.cs) creates PostgreSQL and Azurite with persistent volumes, then builds the web Dockerfile. It selects Development and injects database/storage configuration. Use the web URL shown by AppHost (normally localhost:8080).
 
-Use **.NET 10 / C# 14** and the package versions checked into this branch. Review [Directory.Packages.props](Directory.Packages.props) before changing dependencies. Restore/build the checkpoint before diagnosing a cloud issue.
-
-### PostgreSQL, Azurite and the web container
-
-Start a Docker-compatible container runtime. [AppHost.cs](VibeCast.AppHost/AppHost.cs) provisions PostgreSQL, Azurite and media/Data Protection containers, then builds the web Dockerfile. It injects the database and storage references into the web container. The default local web endpoint is `http://localhost:8080`; the AppHost resource output is authoritative.
-
-Configure the AppHost parameters using its user-secrets store or the environment. Its [project file](VibeCast.AppHost/VibeCast.AppHost.csproj) declares the user-secrets ID. The current AppHost parameter names are:
+Configure the **AppHost project's** user secrets. Its parameters are:
 
 - `Parameters:foundry-project-endpoint`
 - `Parameters:foundry-chat-model-deployment`
@@ -42,8 +39,11 @@ Configure the AppHost parameters using its user-secrets store or the environment
 - `Parameters:content-understanding-api-key`
 - `Parameters:knowledge-storage-service-uri`
 - `Parameters:knowledge-search-endpoint`
+- `Parameters:azure-tenant-id`
+- `Parameters:azure-client-id`
+- `Parameters:azure-client-secret`
 
-These become the Foundry, Speech, ContentUnderstanding and KnowledgeStorage settings in the web container. Media uses local Azurite here; the knowledge-source URI and Search endpoint still point to the configured external knowledge services. User secrets from the web project are not automatically the container's configuration.
+The last three supply a development service principal to the local web container as AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET. That identity needs access to the configured knowledge storage/search resources. The container does not inherit the host's Visual Studio/Azure CLI login or the web project's user secrets. Keep credentials outside committed files.
 
 ```bash
 dotnet restore VibeCast.sln
@@ -51,44 +51,38 @@ dotnet build VibeCast.sln --configuration Release --no-restore
 dotnet run --project VibeCast.AppHost
 ```
 
-Do not use the older SQLite path or the generic direct-web launch as this branch's default setup. AppHost explicitly selects Development; this is a local production-preparation checkpoint, not evidence of a completed hosted Azure deployment. Development startup applies migrations and seeds data. DataProtection production configuration additionally uses BlobUri and KeyVaultKeyIdentifier; inspect [DataProtectionExtensions.cs](src/VibeCast.Web/Security/DataProtectionExtensions.cs) for the environment-specific behavior.
+Development startup migrates and seeds PostgreSQL. Keep the supplied PostgreSQL migration history; do not repeat the recording's earlier SQLite migration deletion. [SeedData.cs](src/VibeCast.Infrastructure/Data/SeedData.cs) defines the local teaching account.
 
-### Configuration reference
+## Production code supplied in this checkpoint
 
-| Options file | Settings declared by this checkpoint |
+The branch includes shared managed-identity credentials, authenticated PostgreSQL/AI client registrations, production media storage options, [appsettings.Production.json](src/VibeCast.Web/appsettings.Production.json), and [the initial schema script](vibecast-initial-schema.sql).
+
+Configure your deployed application using the actual resource values:
+
+| Configuration | Purpose |
 |---|---|
-| [src/VibeCast.Infrastructure/Options/ContentUnderstandingOptions.cs](src/VibeCast.Infrastructure/Options/ContentUnderstandingOptions.cs) | `Endpoint`, `ApiKey` |
-| [src/VibeCast.Infrastructure/Options/DataProtectionStorageOptions.cs](src/VibeCast.Infrastructure/Options/DataProtectionStorageOptions.cs) | `ApplicationName`, `BlobName`, `BlobUri`, `KeyVaultKeyIdentifier` |
-| [src/VibeCast.Infrastructure/Options/FoundryOptions.cs](src/VibeCast.Infrastructure/Options/FoundryOptions.cs) | `ProjectEndpoint`, `ChatModelDeployment`, `ImageModelDeployment`, `ApiKey`, `MaxRetries`, `ChatTimeoutSeconds`, `MaxConcurrentChatRequests`, `ChatQueueLimit` |
-| [src/VibeCast.Infrastructure/Options/KnowledgeStorageOptions.cs](src/VibeCast.Infrastructure/Options/KnowledgeStorageOptions.cs) | `ServiceUri`, `ContainerName`, `SearchEndpoint`, `KnowledgeBaseName`, `KnowledgeSourceName`, `SourcePathField` |
-| [src/VibeCast.Infrastructure/Options/SpeechOptions.cs](src/VibeCast.Infrastructure/Options/SpeechOptions.cs) | `Endpoint`, `ApiKey` |
+| `ASPNETCORE_ENVIRONMENT=Production` | Select production registrations. |
+| `AzureIdentity__ManagedIdentityClientId` | Client ID of the attached user-assigned identity. |
+| `ConnectionStrings__VibeCast` | PostgreSQL connection string for the mapped runtime database principal. |
+| `MediaStorage__ServiceUri`, `MediaStorage__ContainerName` | Production media storage endpoint/container. |
+| `DataProtection__BlobUri`, `DataProtection__KeyVaultKeyIdentifier` | Key-ring blob and Key Vault key identifier. |
+| Foundry, Speech, ContentUnderstanding and KnowledgeStorage sections | Existing AI endpoints, deployments and retrieval settings; see the [options classes](src/VibeCast.Infrastructure/Options). |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Destination for the production telemetry exporter. |
 
-Use the matching configuration section names declared in these files. Environment variables use double underscores instead of colons. Keep credentials outside committed files. Startup validation may require settings for registered services even if your current task calls only one of them.
+Environment variables use double underscores for configuration nesting. The production JSON file contains defaults, not all required deployment settings. Production uses managed identity rather than the local container's service-principal secret. Azure permissions and the PostgreSQL principal/table permissions must already be configured.
 
-Knowledge storage and retrieval use the configured Azure identity through DefaultAzureCredential. Ensure that identity can access the configured storage and search resources; uploading a file does not guarantee indexing has finished.
+Production startup does not run migrations or seed data. Apply the schema and required database setup separately using the published deployment instructions. This snapshot does not contain all infrastructure assets referenced by recordings; completing the code is not evidence that Azure resources have been provisioned.
 
-The local teaching account is defined in [SeedData.cs](src/VibeCast.Infrastructure/Data/SeedData.cs). Use it only in the local Development environment. [Program.cs](src/VibeCast.Web/Program.cs) and [DependencyInjection.cs](src/VibeCast.Infrastructure/DependencyInjection.cs) are authoritative for startup and registered services.
+## Verification
 
-## Verify the learning objective
+See the [task-specific checks](docs/practice/README.md#build-and-check). Compile first, then verify storage roundtrips, the actual media container, persistence across restarts and production telemetry.
 
-```bash
-dotnet test VibeCast.sln --configuration Release --no-build
-```
+The existing health integration-test fixture lacks PostgreSQL/storage setup; launching AppHost separately does not automatically supply it. That inherited test failure is separate from a named unfinished exercise. Domain/application tests do not cover all Section 9 tasks.
 
-Tests that exercise an unfinished task can fail with its named exception. Use the task guide to distinguish expected gaps from regressions, and compare behavior with the pinned reference after attempting the implementation. Existing tests do not automatically cover every acceptance criterion. The scaffold's Release build has passed in GitHub Actions. See the task guide's validation status for expected exercise failures and remaining checks; completed solutions and live cloud behavior have not been fully verified.
-
-Roundtrip bytes through Azurite, verify owner-scoped storage keys, restart the local containers and confirm PostgreSQL-backed state and Data Protection storage behave as expected.
-
-## Checkpoint boundaries
-
-- Navigation pages are not a feature checklist. Workflow, approval, evaluation or observability screens can remain presentation scaffolds; inspect their service calls before treating them as implemented capabilities.
-- The channel queue is local and non-durable. Its presence does not provide a hosted message broker or durable execution.
-- The recorded image-generation integration uses IImageGenerator with MEAI001 suppressed. Keep the checkpoint's dependency set when following the video; treat API migration as separate work.
+The health endpoints currently expose a self-check. Verify a real database/storage/AI operation separately; a healthy process alone does not establish dependency access.
 
 ## Related checkpoints
 
-- [section-09-prod-prep-complete](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-09-prod-prep-complete)
-- [section-09-prod-prep-practice](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-09-prod-prep-practice) — this branch
-- [section-09-prod-prep-start](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-09-prod-prep-start)
-
-Return to the [course branch index](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/main). The earlier generic branch-strategy/local-development documents may describe older snapshots; use this README and the linked source files for this branch's current setup.
+- [Start](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-09-prod-prep-start)
+- [Complete](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/section-09-prod-prep-complete)
+- [Pinned solution](https://github.com/trevoirwilliams/VibeCast.Foundry.TeachingGuide/tree/c2815618038f285631c54fee3a5e42ce80e7b66f)

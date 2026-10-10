@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,10 @@ public static class Extensions
         this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
+        string? insightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+
+        string? otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
@@ -79,9 +84,20 @@ public static class Extensions
                         .AddHttpClientInstrumentation();
                 });
 
-        if (!string.IsNullOrWhiteSpace(
-                builder.Configuration[
-                    "OTEL_EXPORTER_OTLP_ENDPOINT"]))
+        if (builder.Environment.IsProduction() && !string.IsNullOrWhiteSpace(insightsConnectionString))
+        {
+            // PRACTICE S09-07: Export production telemetry to Application Insights.
+            // Lesson: Add Application Insights and Production Health Monitoring.
+            // 1. Add the Azure Monitor exporter to the existing openTelemetry builder.
+            // 2. In its options callback, assign the supplied insightsConnectionString.
+            //    Configure the existing builder; do not create a second telemetry pipeline.
+            // Keep the supplied OTLP fallback for local Aspire.
+            // Check: trigger a normal application request and find its trace in Application Insights.
+            // /health and /alive are deliberately excluded from request tracing.
+            // Optional API hint: docs/practice/README.md#s09-07-telemetry
+            throw new NotImplementedException("S09-07: configure the production telemetry exporter.");
+        }
+        else if (!string.IsNullOrWhiteSpace(otlpEndpoint))
         {
             openTelemetry.UseOtlpExporter();
         }
@@ -106,19 +122,16 @@ public static class Extensions
     public static WebApplication MapDefaultEndpoints(
         this WebApplication app)
     {
-        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
-        {
-            app.MapHealthChecks(HealthEndpointPath);
+        app.MapHealthChecks(HealthEndpointPath);
 
-            app.MapHealthChecks(
-                AlivenessEndpointPath,
-                new HealthCheckOptions
-                {
-                    Predicate =
-                        registration =>
-                            registration.Tags.Contains("live")
-                });
-        }
+        app.MapHealthChecks(
+            AlivenessEndpointPath,
+            new HealthCheckOptions
+            {
+                Predicate =
+                    registration =>
+                        registration.Tags.Contains("live")
+            });
 
         return app;
     }
